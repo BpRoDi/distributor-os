@@ -1,0 +1,33 @@
+{
+  "name": "distributor-os-alpha",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "postbuild": "node scripts/fix-next-server-chunks.mjs",
+    "prestart": "node scripts/fix-next-server-chunks.mjs",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "node --experimental-strip-types --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@supabase/ssr": "latest",
+    "@supabase/supabase-js": "latest",
+    "next": "15.5.9",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "resend": "latest",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@next/swc-wasm-nodejs": "^15.5.7",
+    "@next/swc-wasm-web": "^15.5.7",
+    "@tailwindcss/postcss": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "tailwindcss": "latest",
+    "typescript": "latest"
+  }
+}
