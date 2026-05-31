@@ -9,6 +9,10 @@ alter table public.orders
   add constraint orders_status_check
   check (status in ('po_requested', 'draft', 'approved', 'link_created', 'distributor_confirmed', 'cancelled'));
 
+alter table public.orders
+  add column if not exists payment_request_url text,
+  add column if not exists stripe_checkout_session_id text;
+
 alter table public.payment_requests
   add column if not exists provider text not null default 'manual'
     check (provider in ('manual', 'stripe')),

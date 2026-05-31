@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { PaymentMethod, PaymentStatus } from "../payments/status.ts";
 import { polishDemoProductName, polishDemoSku } from "./product-display.ts";
+import { normalizeSupabaseUrl } from "../supabase/url.ts";
 
 export const PILOT_BRAND_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -58,10 +59,6 @@ export function getSupabaseAdmin() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) return null;
   return createClient(supabaseUrl, serviceRoleKey);
-}
-
-export function normalizeSupabaseUrl(url: string | undefined) {
-  return url?.replace(/\/rest\/v1\/?$/i, "").replace(/\/+$/, "");
 }
 
 export function mapPilotDistributorId(id: string) {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { normalizeSupabaseUrl } from "@/lib/orders/persistence";
+import { normalizeSupabaseUrl } from "@/lib/supabase/url";
 
 const BRAND_ID = "00000000-0000-0000-0000-000000000001";
 const DISTRIBUTOR_ID = "00000000-0000-0000-0000-000000000101";

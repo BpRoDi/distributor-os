@@ -33,7 +33,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ orders });
   } catch (error: any) {
     return NextResponse.json(
-      { error: error?.message || "Unknown order list error." },
+      {
+        error: error?.message || "Unknown order list error.",
+        code: error?.code || null,
+        details: error?.details || null,
+        hint: error?.hint || null,
+      },
       { status: 500 }
     );
   }
