@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { readApiError } from "@/lib/api/errors";
+import { closeCheckoutWindow, navigateCheckoutWindow, openCheckoutWindow } from "@/lib/payments/checkout-window";
 import {
   getDemoSharedOrder,
   levelDetails,
@@ -171,6 +172,7 @@ export default function OrderReviewClient({ token }: { token: string }) {
 
   async function updatePayment(paymentStatus: PaymentStatus) {
     if (!order) return;
+    const checkoutWindow = paymentStatus === "requested" ? openCheckoutWindow() : null;
     setActionLoading(paymentStatus === "paid" ? "markPaid" : "requestPayment");
     setLoadError("");
     const dueDate = paymentStatus === "requested" ? addDaysIso(7) : null;
@@ -190,7 +192,11 @@ export default function OrderReviewClient({ token }: { token: string }) {
       const nextOrder = normalizeSharedOrder(data.order);
       setOrder(nextOrder);
       persistSharedOrderSnapshot(nextOrder, token);
-      if (data.paymentUrl) window.open(data.paymentUrl, "_blank", "noopener,noreferrer");
+      if (data.paymentUrl) {
+        navigateCheckoutWindow(checkoutWindow, data.paymentUrl);
+      } else {
+        closeCheckoutWindow(checkoutWindow);
+      }
       setLoadState(paymentStatus === "paid" ? "Payment marked paid in Supabase" : "Payment requested in Supabase");
       setActionLoading(null);
       return;
@@ -199,6 +205,7 @@ export default function OrderReviewClient({ token }: { token: string }) {
     if (response.status !== 503) {
       setLoadError(`Failed payment update: ${error}`);
       setLoadState("Payment update failed");
+      closeCheckoutWindow(checkoutWindow);
       setActionLoading(null);
       return;
     }
@@ -206,6 +213,7 @@ export default function OrderReviewClient({ token }: { token: string }) {
       // Use local preview payment status below when Supabase is not configured.
     }
 
+  closeCheckoutWindow(checkoutWindow);
   const nextOrder = applySharedPaymentStatus(order, paymentStatus, dueDate);
   setOrder(nextOrder);
   persistSharedOrderSnapshot(nextOrder, token);

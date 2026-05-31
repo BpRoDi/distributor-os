@@ -32,6 +32,7 @@ import {
   type PortalOrderSnapshot,
   upsertPortalOrderRecord,
 } from "@/lib/orders/portal-demo";
+import { closeCheckoutWindow, isStripeCheckoutUrl, navigateCheckoutWindow, openCheckoutWindow } from "@/lib/payments/checkout-window";
 import type { PaymentMethod, PaymentStatus } from "@/lib/payments/status";
 import {
   acceptDistributorInvite,
@@ -918,6 +919,59 @@ export default function BrandAppPage() {
     setToast(`${paid.orderNumber} marked paid.`);
   }
 
+  async function openPortalPaymentCheckout(order: PersistedOrder) {
+    const checkoutWindow = openCheckoutWindow();
+    let requested = normalizePersistedOrder(requestPortalOrderPayment(asPortalOrderSnapshot(order)));
+    let paymentUrl = isStripeCheckoutUrl(order.paymentRequestUrl) ? order.paymentRequestUrl || "" : "";
+
+    setErrorMessage("");
+
+    if (!paymentUrl) {
+      try {
+        const response = await fetch(`/api/orders/${order.shareToken}/payment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            payment_status: "requested",
+            payment_method: "card",
+            payment_due_date: requested.paymentDueDate,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          requested = normalizePersistedOrder(data.order);
+          paymentUrl = data.paymentUrl || (isStripeCheckoutUrl(requested.paymentRequestUrl) ? requested.paymentRequestUrl || "" : "");
+        } else {
+          const error = await readApiError(response, "Stripe checkout failed");
+          closeCheckoutWindow(checkoutWindow);
+          setErrorMessage(`Stripe checkout could not open: ${error}`);
+          setToast("Stripe checkout was not created.");
+          return;
+        }
+      } catch (error: any) {
+        closeCheckoutWindow(checkoutWindow);
+        setErrorMessage(`Stripe checkout could not open: ${error?.message || "payment API unavailable"}`);
+        setToast("Stripe checkout was not created.");
+        return;
+      }
+    }
+
+    if (!paymentUrl) {
+      closeCheckoutWindow(checkoutWindow);
+      persistPortalOrder(requested);
+      setErrorMessage("Stripe checkout URL was not created. Check STRIPE_SECRET_KEY in Vercel, then request payment again.");
+      setToast("Payment request saved, but Stripe checkout is not configured.");
+      return;
+    }
+
+    persistPortalOrder({ ...requested, paymentRequestUrl: paymentUrl });
+    setStatus("confirmed");
+    setShareLink(paymentUrl);
+    setToast(`Opening Stripe checkout for ${requested.orderNumber}.`);
+    navigateCheckoutWindow(checkoutWindow, paymentUrl);
+  }
+
   function persistPortalOrder(order: PersistedOrder) {
     upsertPortalOrderRecord(asPortalOrderSnapshot(order), workspace.id);
     upsertOrderRecord(order);
@@ -1161,7 +1215,7 @@ export default function BrandAppPage() {
               confirmLoading={loadingAction === "confirmDistributor"}
               orderRecords={orderRecords}
               submitPortalOrder={submitPortalOrderFromCart}
-              payPortalOrder={markPortalOrderPaid}
+              openPortalPayment={openPortalPaymentCheckout}
             />
           )}
 
@@ -2088,7 +2142,7 @@ function DistributorPortal({
   confirmLoading,
   orderRecords,
   submitPortalOrder,
-  payPortalOrder,
+  openPortalPayment,
 }: {
   products: Product[];
   search: string;
@@ -2108,7 +2162,7 @@ function DistributorPortal({
   confirmLoading: boolean;
   orderRecords: PersistedOrder[];
   submitPortalOrder: () => Promise<PersistedOrder | null>;
-  payPortalOrder: (order: PersistedOrder) => void;
+  openPortalPayment: (order: PersistedOrder) => Promise<void>;
 }) {
   const [poStatus, setPoStatus] = useState("");
   const cartMoqIssues = cart.filter((item) => item.qty < item.moq).length;
@@ -2237,16 +2291,16 @@ function DistributorPortal({
               <ReadField label="Order" value={paymentOrder.orderNumber} />
               <ReadField label="Due" value={paymentOrder.paymentDueDate ? new Date(paymentOrder.paymentDueDate).toLocaleDateString() : "Net terms"} />
               <ReadField label="Amount due" value={`$${paymentOrder.outstandingAmount.toFixed(2)}`} />
-              <ReadField label="Method" value="Demo payment" />
+              <ReadField label="Method" value="Stripe Checkout" />
             </div>
             <ActionButton
               className="mt-4 w-full"
-              onClick={() => {
-                payPortalOrder(paymentOrder);
-                setPoStatus(`${paymentOrder.orderNumber} payment submitted.`);
+              onClick={async () => {
+                await openPortalPayment(paymentOrder);
+                setPoStatus(`${paymentOrder.orderNumber} secure checkout opened.`);
               }}
             >
-              Pay now
+              Pay with secure checkout
             </ActionButton>
           </Panel>
         )}

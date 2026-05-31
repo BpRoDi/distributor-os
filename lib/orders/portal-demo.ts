@@ -72,6 +72,7 @@ export type PortalOrderSnapshot = {
   paymentDueDate?: string | null;
   amountPaid: number;
   outstandingAmount: number;
+  paymentRequestUrl?: string | null;
   createdAt?: string;
   items: PortalOrderItem[];
   events: PortalOrderEvent[];
@@ -124,6 +125,7 @@ export function createPortalPoRequest({
     paymentDueDate: null,
     amountPaid: 0,
     outstandingAmount: totalValue,
+    paymentRequestUrl: null,
     createdAt,
     items,
     events: [
@@ -226,6 +228,7 @@ export function normalizePortalOrder(raw: any): PortalOrderSnapshot {
     paymentDueDate: raw?.paymentDueDate || raw?.payment_due_date || null,
     amountPaid,
     outstandingAmount: roundCurrency(Number(raw?.outstandingAmount ?? raw?.outstanding_amount ?? Math.max(0, totalValue - amountPaid))),
+    paymentRequestUrl: raw?.paymentRequestUrl || raw?.payment_request_url || raw?.requestUrl || raw?.request_url || null,
     createdAt: raw?.createdAt || raw?.created_at,
     items,
     events: (raw?.events || []).map((event: any) => ({

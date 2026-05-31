@@ -48,17 +48,24 @@ export async function POST(
     const checkout = paymentStatus === "requested"
       ? await createOrderCheckoutSession({ order: existing, token, appUrl })
       : null;
-    const paymentRequestUrl = checkout?.url || `${appUrl}/order/${token}`;
+    const paymentRequestUrl = checkout?.url || null;
+
+    const orderUpdate: Record<string, unknown> = {
+      payment_status: paymentStatus,
+      payment_method: paymentUpdate.paymentMethod,
+      payment_due_date: paymentUpdate.paymentDueDate,
+      amount_paid: paymentUpdate.amountPaid,
+      outstanding_amount: paymentUpdate.outstandingAmount,
+    };
+
+    if (paymentStatus === "requested") {
+      orderUpdate.payment_request_url = paymentRequestUrl;
+      orderUpdate.stripe_checkout_session_id = checkout?.id || null;
+    }
 
     const { error: updateError } = await supabase
       .from("orders")
-      .update({
-        payment_status: paymentStatus,
-        payment_method: paymentUpdate.paymentMethod,
-        payment_due_date: paymentUpdate.paymentDueDate,
-        amount_paid: paymentUpdate.amountPaid,
-        outstanding_amount: paymentUpdate.outstandingAmount,
-      })
+      .update(orderUpdate)
       .eq("id", existing.id);
 
     if (updateError) {
@@ -91,7 +98,7 @@ export async function POST(
         status: paymentStatus === "requested" ? "requested" : paymentStatus === "partial" ? "partial" : "paid",
         rail: paymentUpdate.paymentMethod,
         dueDate: paymentUpdate.paymentDueDate,
-        requestUrl: paymentRequestUrl,
+        requestUrl: paymentRequestUrl || undefined,
         provider: checkout?.id ? "stripe" : "manual",
         providerSessionId: checkout?.id || null,
         metadata: {

@@ -5,13 +5,14 @@ import { AppHeader, Card, StatusBadge } from "@/components/ui";
 import { demoOrders, demoProducts, demoThreads } from "@/lib/mock-data";
 import { getLevelPrice, getPriceDelta, levelDetails, type DistributorLevel } from "@/lib/commercial-demo";
 import {
+  addDaysIso,
   createPortalPoRequest,
-  payPortalOrder,
   readPortalOrderRecords,
   upsertPortalOrderRecord,
   type PortalOrderSnapshot,
 } from "@/lib/orders/portal-demo";
 import { polishDemoProductName, polishDemoSku } from "@/lib/orders/product-display";
+import { closeCheckoutWindow, isStripeCheckoutUrl, navigateCheckoutWindow, openCheckoutWindow } from "@/lib/payments/checkout-window";
 import { createDefaultBrandWorkspace } from "@/lib/workspace/tenant";
 import type { DistributorInvite } from "@/lib/workspace/tenant";
 
@@ -132,28 +133,49 @@ export default function PortalPage() {
     setCart([]);
   }
 
-  async function payOrder(order: PortalOrderSnapshot) {
-    let paid = payPortalOrder(order);
-    try {
-      const response = await fetch(`/api/orders/${order.shareToken}/payment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          payment_status: "paid",
-          payment_method: "card",
-          amount_paid: order.totalValue,
-        }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        paid = data.order;
+  async function openPaymentCheckout(order: PortalOrderSnapshot) {
+    const checkoutWindow = openCheckoutWindow();
+    let paymentUrl = isStripeCheckoutUrl(order.paymentRequestUrl) ? order.paymentRequestUrl || "" : "";
+    let nextOrder = order;
+
+    if (!paymentUrl) {
+      try {
+        const response = await fetch(`/api/orders/${order.shareToken}/payment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            payment_status: "requested",
+            payment_method: "card",
+            payment_due_date: order.paymentDueDate || addDaysIso(7),
+          }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          nextOrder = data.order;
+          const savedPaymentUrl = data.order?.paymentRequestUrl || data.order?.payment_request_url;
+          paymentUrl = data.paymentUrl || (isStripeCheckoutUrl(savedPaymentUrl) ? savedPaymentUrl : "");
+        } else {
+          closeCheckoutWindow(checkoutWindow);
+          setNotice("Stripe checkout could not be created. Ask the brand to check payment settings.");
+          return;
+        }
+      } catch (error: any) {
+        closeCheckoutWindow(checkoutWindow);
+        setNotice(`Stripe checkout could not open: ${error?.message || "payment API unavailable"}`);
+        return;
       }
-    } catch {
-      // Local fallback below.
     }
-    upsertPortalOrderRecord(paid, workspace.id);
+
+    if (!paymentUrl) {
+      closeCheckoutWindow(checkoutWindow);
+      setNotice("Payment request is saved, but Stripe checkout is not configured yet.");
+      return;
+    }
+
+    upsertPortalOrderRecord({ ...nextOrder, paymentRequestUrl: paymentUrl }, workspace.id);
     await loadOrders();
-    setNotice(`${order.orderNumber} payment submitted. The brand control panel now shows paid.`);
+    setNotice(`${order.orderNumber} secure checkout opened.`);
+    navigateCheckoutWindow(checkoutWindow, paymentUrl);
   }
 
   return (
@@ -213,9 +235,9 @@ export default function PortalPage() {
                 <ReadBox label="Order" value={paymentOrder.orderNumber} />
                 <ReadBox label="Due" value={paymentOrder.paymentDueDate ? new Date(paymentOrder.paymentDueDate).toLocaleDateString() : "Net terms"} />
                 <ReadBox label="Amount due" value={`$${paymentOrder.outstandingAmount.toFixed(2)}`} />
-                <ReadBox label="Method" value="Demo payment" />
+                <ReadBox label="Method" value="Stripe Checkout" />
               </div>
-              <button onClick={() => payOrder(paymentOrder)} className="mt-4 w-full rounded-[8px] bg-slate-950 px-4 py-3 text-sm font-semibold text-white">Pay now</button>
+              <button onClick={() => openPaymentCheckout(paymentOrder)} className="mt-4 w-full rounded-[8px] bg-slate-950 px-4 py-3 text-sm font-semibold text-white">Pay with secure checkout</button>
             </Card>
           )}
           <Card>
