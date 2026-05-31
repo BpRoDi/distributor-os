@@ -357,31 +357,37 @@ export default function BrandAppPage() {
   }
 
   async function loadOrderRecords() {
-    const records: PersistedOrder[] = [];
+    const localRecords: PersistedOrder[] = [];
+    const remoteRecords: PersistedOrder[] = [];
     const raw =
       window.localStorage.getItem(workspaceKey("order-records")) ||
       window.localStorage.getItem("distributor-os-order-records");
     if (raw) {
       try {
-        records.push(...(JSON.parse(raw) as any[]).map(normalizePersistedOrder));
+        localRecords.push(...(JSON.parse(raw) as any[]).map(normalizePersistedOrder));
       } catch {
         window.localStorage.removeItem("distributor-os-order-records");
       }
     }
 
-    records.push(...readLocalSharedOrders(workspace.id));
+    localRecords.push(...readLocalSharedOrders(workspace.id));
     try {
       const response = await fetch(`/api/orders?brand_id=${encodeURIComponent(workspace.id)}`, { cache: "no-store" });
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data.orders)) {
-          records.push(...data.orders.map(normalizePersistedOrder));
+          remoteRecords.push(...data.orders.map(normalizePersistedOrder));
         }
       }
     } catch {
       // Local records keep the demo usable when the API is unavailable.
     }
 
+    const remoteKeys = new Set(remoteRecords.map(getOrderSnapshotKey).filter(Boolean));
+    const records = [
+      ...localRecords.filter((order) => !remoteKeys.has(getOrderSnapshotKey(order))),
+      ...remoteRecords,
+    ];
     const parsed = ensureFinanceDemoStory(mergeLocalOrderSnapshots(records));
     if (!parsed.length) return;
     setOrderRecords(parsed);
@@ -2347,6 +2353,17 @@ function DistributorPortal({
                   </Badge>
                 </div>
                 <p className="mt-1 text-sm text-slate-500">${order.totalValue.toLocaleString()} / {paymentStatusLabel(order.paymentStatus)} / {levelDetails[order.distributorLevel].label}</p>
+                {order.paymentStatus === "requested" && order.outstandingAmount > 0 && (
+                  <ActionButton
+                    className="mt-3 w-full"
+                    onClick={async () => {
+                      await openPortalPayment(order);
+                      setPoStatus(`${order.orderNumber} secure checkout opened.`);
+                    }}
+                  >
+                    Pay with secure checkout
+                  </ActionButton>
+                )}
               </div>
             ))}
           </div>
@@ -3197,13 +3214,17 @@ function readLocalSharedOrder(token: string, brandId?: string) {
 function mergeLocalOrderSnapshots(orders: PersistedOrder[]) {
   const byOrder = new Map<string, PersistedOrder>();
   for (const order of orders) {
-    const key = order.shareToken || order.token || order.id || order.orderNumber;
+    const key = getOrderSnapshotKey(order);
     const existing = byOrder.get(key);
     if (!existing || getOrderSnapshotTime(order) >= getOrderSnapshotTime(existing)) {
       byOrder.set(key, order);
     }
   }
   return [...byOrder.values()].sort((left, right) => getOrderSnapshotTime(right) - getOrderSnapshotTime(left));
+}
+
+function getOrderSnapshotKey(order: PersistedOrder) {
+  return order.shareToken || order.token || order.id || order.orderNumber;
 }
 
 function getOrderSnapshotTime(order: PersistedOrder) {

@@ -70,7 +70,13 @@ export default function PortalPage() {
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data.orders)) {
-          setOrders([...data.orders, ...localOrders]);
+          const remoteKeys = new Set(
+            data.orders.map((order: any) => order.shareToken || order.share_token || order.token || order.id || order.orderNumber || order.order_number)
+          );
+          setOrders([
+            ...data.orders,
+            ...localOrders.filter((order) => !remoteKeys.has(order.shareToken || order.token || order.id || order.orderNumber)),
+          ]);
           return;
         }
       }
@@ -254,6 +260,14 @@ export default function PortalPage() {
                     <StatusBadge status={order.paymentStatus === "paid" ? "Delivered" : order.status === "po_requested" ? "Submitted" : "Confirmed"} />
                   </div>
                   <p className="mt-1 text-slate-500">${order.totalValue.toLocaleString()} / {paymentStatusLabel(order.paymentStatus)}</p>
+                  {order.paymentStatus === "requested" && order.outstandingAmount > 0 && (
+                    <button
+                      onClick={() => openPaymentCheckout(order)}
+                      className="mt-3 w-full rounded-[8px] bg-slate-950 px-4 py-3 text-sm font-semibold text-white"
+                    >
+                      Pay with secure checkout
+                    </button>
+                  )}
                 </div>
               ))}
               {demoOrders.filter((order) => order.distributor === "EuroTrade GmbH" || order.distributor === distributorName).map((order) => <div key={order.id} className="rounded-[8px] bg-slate-50 p-4 text-sm"><div className="flex items-center justify-between"><p className="font-semibold">{order.id}</p><StatusBadge status={order.status} /></div></div>)}
