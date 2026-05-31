@@ -41,6 +41,7 @@ export const OrderCreateSchema = z.object({
   distributor_name: z.string().min(1),
   distributor_level: z.enum(["A", "B", "C"]),
   source_channel: SourceChannelSchema,
+  order_status: z.enum(["po_requested", "draft", "approved", "link_created", "distributor_confirmed"]).optional(),
   original_message: z.string().min(1),
   total_value: z.coerce.number().nonnegative(),
   items: z.array(OrderItemInputSchema).min(1),
@@ -165,6 +166,8 @@ export async function recordPaymentRequest(
     rail: PaymentMethod;
     dueDate?: string | null;
     requestUrl?: string;
+    provider?: "manual" | "stripe";
+    providerSessionId?: string | null;
     metadata?: Record<string, unknown>;
   }
 ) {
@@ -178,6 +181,8 @@ export async function recordPaymentRequest(
     status: input.status,
     due_date: input.dueDate || null,
     request_url: input.requestUrl || null,
+    provider: input.provider || "manual",
+    provider_session_id: input.providerSessionId || null,
     paid_at: input.status === "paid" ? new Date().toISOString() : null,
     metadata: input.metadata || {},
   });
@@ -215,8 +220,8 @@ export async function ensurePilotRows(
       supabase.from("products").upsert({
         id: mapPilotProductId(item.product_id),
         brand_id: brandId,
-        name: item.product_name,
-        sku: item.sku,
+        name: polishDemoProductName(item.product_name),
+        sku: polishDemoSku(item.sku, item.product_name),
         category: "Pilot Catalog",
         moq: item.moq,
         wholesale_price: item.level_a_price,
@@ -254,18 +259,76 @@ export async function getOrderByToken(supabase: SupabaseClient, token: string) {
     { data: items, error: itemsError },
     { data: events, error: eventsError },
     { data: brands, error: brandError },
+    { data: paymentRequests, error: paymentRequestError },
   ] =
     await Promise.all([
       supabase.from("order_items").select("*").eq("order_id", order.id).order("sku"),
       supabase.from("order_events").select("*").eq("order_id", order.id).order("created_at", { ascending: true }),
       supabase.from("brands").select("name").eq("id", order.brand_id).limit(1),
+      supabase.from("payment_requests").select("*").eq("order_id", order.id).order("requested_at", { ascending: false }).limit(1),
     ]);
 
   if (itemsError) throw itemsError;
   if (eventsError) throw eventsError;
   if (brandError) throw brandError;
+  if (paymentRequestError) throw paymentRequestError;
 
-  return normalizeOrder({ ...order, brand_name: brands?.[0]?.name }, items || [], events || []);
+  return normalizeOrder({ ...order, brand_name: brands?.[0]?.name, payment_request_url: paymentRequests?.[0]?.request_url }, items || [], events || []);
+}
+
+export async function listOrders(
+  supabase: SupabaseClient,
+  input: {
+    brandId?: string | null;
+    distributorId?: string | null;
+    limit?: number;
+  } = {}
+) {
+  const brandId = input.brandId || PILOT_BRAND_ID;
+  let query = supabase
+    .from("orders")
+    .select("*")
+    .eq("brand_id", brandId)
+    .order("created_at", { ascending: false })
+    .limit(input.limit || 100);
+
+  if (input.distributorId) {
+    query = query.eq("distributor_id", mapPilotDistributorId(input.distributorId));
+  }
+
+  const { data: orders, error: orderError } = await query;
+  if (orderError) throw orderError;
+  if (!orders?.length) return [];
+
+  const orderIds = orders.map((order) => order.id);
+  const [
+    { data: items, error: itemsError },
+    { data: events, error: eventsError },
+    { data: brands, error: brandError },
+    { data: paymentRequests, error: paymentRequestError },
+  ] = await Promise.all([
+    supabase.from("order_items").select("*").in("order_id", orderIds).order("sku"),
+    supabase.from("order_events").select("*").in("order_id", orderIds).order("created_at", { ascending: true }),
+    supabase.from("brands").select("id,name").eq("id", brandId),
+    supabase.from("payment_requests").select("*").in("order_id", orderIds).order("requested_at", { ascending: false }),
+  ]);
+
+  if (itemsError) throw itemsError;
+  if (eventsError) throw eventsError;
+  if (brandError) throw brandError;
+  if (paymentRequestError) throw paymentRequestError;
+
+  const brandName = brands?.[0]?.name;
+  const itemsByOrder = groupByOrderId(items || []);
+  const eventsByOrder = groupByOrderId(events || []);
+  const paymentRequestByOrder = latestPaymentRequestByOrderId(paymentRequests || []);
+  return orders.map((order) =>
+    normalizeOrder(
+      { ...order, brand_name: brandName, payment_request_url: paymentRequestByOrder.get(order.id)?.request_url },
+      itemsByOrder.get(order.id) || [],
+      eventsByOrder.get(order.id) || []
+    )
+  );
 }
 
 export function normalizeOrder(order: any, items: any[], events: any[]) {
@@ -292,6 +355,7 @@ export function normalizeOrder(order: any, items: any[], events: any[]) {
     outstandingAmount: Number(order.outstanding_amount ?? order.total_value ?? order.amount ?? 0),
     externalOrderId: order.external_order_id || null,
     buyerReference: order.buyer_reference || null,
+    paymentRequestUrl: order.payment_request_url || order.request_url || null,
     createdAt: order.created_at,
     items: items.map((item) => ({
       id: item.id,
@@ -319,6 +383,27 @@ export function normalizeOrder(order: any, items: any[], events: any[]) {
       createdAt: event.created_at,
     })),
   };
+}
+
+function groupByOrderId<T extends { order_id: string }>(records: T[]) {
+  const grouped = new Map<string, T[]>();
+  records.forEach((record) => {
+    const current = grouped.get(record.order_id) || [];
+    current.push(record);
+    grouped.set(record.order_id, current);
+  });
+  return grouped;
+}
+
+function latestPaymentRequestByOrderId<T extends { order_id: string; requested_at?: string }>(records: T[]) {
+  const grouped = new Map<string, T>();
+  records.forEach((record) => {
+    const existing = grouped.get(record.order_id);
+    if (!existing || Date.parse(record.requested_at || "") >= Date.parse(existing.requested_at || "")) {
+      grouped.set(record.order_id, record);
+    }
+  });
+  return grouped;
 }
 
 function normalizeSourceBody(value: string) {

@@ -107,6 +107,7 @@ type PersistedOrder = {
   paymentDueDate?: string | null;
   amountPaid: number;
   outstandingAmount: number;
+  paymentRequestUrl?: string | null;
   createdAt?: string;
   items: PersistedOrderItem[];
   events: PersistedOrderEvent[];
@@ -354,7 +355,7 @@ export default function BrandAppPage() {
     }
   }
 
-  function loadOrderRecords() {
+  async function loadOrderRecords() {
     const records: PersistedOrder[] = [];
     const raw =
       window.localStorage.getItem(workspaceKey("order-records")) ||
@@ -368,6 +369,18 @@ export default function BrandAppPage() {
     }
 
     records.push(...readLocalSharedOrders(workspace.id));
+    try {
+      const response = await fetch(`/api/orders?brand_id=${encodeURIComponent(workspace.id)}`, { cache: "no-store" });
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data.orders)) {
+          records.push(...data.orders.map(normalizePersistedOrder));
+        }
+      }
+    } catch {
+      // Local records keep the demo usable when the API is unavailable.
+    }
+
     const parsed = ensureFinanceDemoStory(mergeLocalOrderSnapshots(records));
     if (!parsed.length) return;
     setOrderRecords(parsed);
@@ -758,7 +771,7 @@ export default function BrandAppPage() {
     setToast(`${product.name} added at ${levelDetails[selectedLevel].label} price.`);
   }
 
-  function submitPortalOrderFromCart() {
+  async function submitPortalOrderFromCart() {
     if (!cart.length) {
       setErrorMessage("Add at least one approved product before submitting a PO.");
       return null;
@@ -771,7 +784,7 @@ export default function BrandAppPage() {
     }
 
     setErrorMessage("");
-    const portalOrder = normalizePersistedOrder(
+    const localPortalOrder = normalizePersistedOrder(
       createPortalPoRequest({
         brandId: workspace.id,
         brandName: workspace.name,
@@ -781,32 +794,124 @@ export default function BrandAppPage() {
         cartItems: cart,
       })
     );
-    persistPortalOrder(portalOrder);
+
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand_id: workspace.id,
+          brand_name: workspace.name,
+          distributor_id: selectedDistributor.id,
+          distributor_name: selectedDistributor.name,
+          distributor_level: selectedLevel,
+          source_channel: "Distributor Portal",
+          order_status: "po_requested",
+          original_message: `Portal PO from ${selectedDistributor.name}`,
+          total_value: cartValue,
+          items: cart.map((item) => ({
+            product_id: item.id,
+            product_name: polishDemoProductName(item.name),
+            sku: polishDemoSku(item.sku, item.name),
+            quantity: item.qty,
+            unit_price: getLevelPrice(item, selectedLevel),
+            level_a_price: item.levelPrices.A,
+            level_b_price: item.levelPrices.B,
+            level_c_price: item.levelPrices.C,
+            moq: item.moq,
+            stock_snapshot: item.stock,
+            confidence: 100,
+          })),
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const portalOrder = normalizePersistedOrder(data.order);
+        persistPortalOrder(portalOrder);
+        setCart([]);
+        setShareLink("");
+        setSharedOrderToken(portalOrder.shareToken);
+        setToast(`Supabase PO ${portalOrder.orderNumber} received from ${portalOrder.distributorName}.`);
+        return portalOrder;
+      }
+    } catch {
+      // Fall back to local portal order below.
+    }
+
+    persistPortalOrder(localPortalOrder);
     setCart([]);
     setShareLink("");
-    setSharedOrderToken(portalOrder.shareToken);
-    setToast(`New PO request received from ${portalOrder.distributorName}. Open Control Center to approve it.`);
-    return portalOrder;
+    setSharedOrderToken(localPortalOrder.shareToken);
+    setToast(`New PO request received from ${localPortalOrder.distributorName}. Open Control Center to approve it.`);
+    return localPortalOrder;
   }
 
-  function approvePortalOrder(order: PersistedOrder) {
-    const approved = normalizePersistedOrder(approvePortalPoRequest(asPortalOrderSnapshot(order)));
+  async function approvePortalOrder(order: PersistedOrder) {
+    let approved = normalizePersistedOrder(approvePortalPoRequest(asPortalOrderSnapshot(order)));
+    try {
+      const response = await fetch(`/api/orders/${order.shareToken}/approve`, { method: "POST" });
+      if (response.ok) {
+        const data = await response.json();
+        approved = normalizePersistedOrder(data.order);
+      }
+    } catch {
+      // Local fallback remains usable when API persistence is unavailable.
+    }
     persistPortalOrder(approved);
     setStatus("confirmed");
     setShareLink("");
     setToast(`${approved.orderNumber} approved. Request payment when finance is ready.`);
   }
 
-  function requestPaymentForPortalOrder(order: PersistedOrder) {
-    const requested = normalizePersistedOrder(requestPortalOrderPayment(asPortalOrderSnapshot(order)));
+  async function requestPaymentForPortalOrder(order: PersistedOrder) {
+    let requested = normalizePersistedOrder(requestPortalOrderPayment(asPortalOrderSnapshot(order)));
+    let paymentUrl = requested.paymentRequestUrl || "";
+    try {
+      const response = await fetch(`/api/orders/${order.shareToken}/payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payment_status: "requested",
+          payment_method: "card",
+          payment_due_date: addDaysIso(7),
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        requested = normalizePersistedOrder(data.order);
+        paymentUrl = data.paymentUrl || requested.paymentRequestUrl || "";
+      }
+    } catch {
+      // Local fallback remains usable when API persistence is unavailable.
+    }
     persistPortalOrder(requested);
     setStatus("confirmed");
-    setShareLink("");
-    setToast(`Payment requested from ${requested.distributorName} for $${requested.outstandingAmount.toFixed(2)}.`);
+    setShareLink(paymentUrl || "");
+    setToast(paymentUrl
+      ? `Stripe payment link ready for ${requested.orderNumber}.`
+      : `Payment requested from ${requested.distributorName} for $${requested.outstandingAmount.toFixed(2)}.`
+    );
   }
 
-  function markPortalOrderPaid(order: PersistedOrder) {
-    const paid = normalizePersistedOrder(payPortalOrder(asPortalOrderSnapshot(order)));
+  async function markPortalOrderPaid(order: PersistedOrder) {
+    let paid = normalizePersistedOrder(payPortalOrder(asPortalOrderSnapshot(order)));
+    try {
+      const response = await fetch(`/api/orders/${order.shareToken}/payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payment_status: "paid",
+          payment_method: order.paymentMethod === "offline" ? "card" : order.paymentMethod,
+          amount_paid: order.totalValue,
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        paid = normalizePersistedOrder(data.order);
+      }
+    } catch {
+      // Local fallback remains usable when API persistence is unavailable.
+    }
     persistPortalOrder(paid);
     setStatus("confirmed");
     setShareLink("");
@@ -1699,6 +1804,16 @@ function InboundPoPanel({
                     {loadingAction === "markPaid" ? "Marking..." : "Mark as Paid"}
                   </button>
                 )}
+                {order.paymentRequestUrl && order.paymentStatus === "requested" && (
+                  <a
+                    href={order.paymentRequestUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-[8px] border border-blue-200 bg-white px-4 py-3 text-sm font-bold text-blue-700"
+                  >
+                    Open secure payment link
+                  </a>
+                )}
                 <button onClick={showPortal} className="text-left text-sm font-bold text-blue-700">
                   Preview distributor payment view
                 </button>
@@ -1992,7 +2107,7 @@ function DistributorPortal({
   confirmSharedOrder: () => void;
   confirmLoading: boolean;
   orderRecords: PersistedOrder[];
-  submitPortalOrder: () => PersistedOrder | null;
+  submitPortalOrder: () => Promise<PersistedOrder | null>;
   payPortalOrder: (order: PersistedOrder) => void;
 }) {
   const [poStatus, setPoStatus] = useState("");
@@ -2101,8 +2216,8 @@ function DistributorPortal({
                 className="mt-4 w-full"
                 tone="dark"
                 disabled={cartMoqIssues > 0}
-                onClick={() => {
-                  const order = submitPortalOrder();
+                onClick={async () => {
+                  const order = await submitPortalOrder();
                   if (order) setPoStatus(`${order.orderNumber} submitted to brand control center.`);
                 }}
               >
@@ -2896,6 +3011,7 @@ function createWorkflowOrder({
     paymentDueDate: null,
     amountPaid: 0,
     outstandingAmount: orderValue,
+    paymentRequestUrl: null,
     createdAt: new Date().toISOString(),
     items: items.map((item) => ({
       id: item.id,
@@ -2938,6 +3054,7 @@ function normalizePersistedOrder(order: any): PersistedOrder {
     paymentDueDate: order.paymentDueDate || order.payment_due_date || null,
     amountPaid: Number(order.amountPaid ?? order.amount_paid ?? 0),
     outstandingAmount: Number(order.outstandingAmount ?? order.outstanding_amount ?? order.totalValue ?? order.total_value ?? 0),
+    paymentRequestUrl: order.paymentRequestUrl || order.payment_request_url || order.requestUrl || order.request_url || null,
     createdAt: order.createdAt || order.created_at,
     items: (order.items || []).map((item: any) => {
       const rawProductName = item.productName || item.product_name || item.name;
@@ -3090,6 +3207,7 @@ function createSeedDemoOrderRecords() {
       paymentDueDate: paymentStatus === "requested" ? addDaysIso(7) : null,
       amountPaid,
       outstandingAmount: Math.max(0, demoOrder.amount - amountPaid),
+      paymentRequestUrl: null,
       createdAt: now,
       items: [{
         id: product.id,
@@ -3162,6 +3280,7 @@ function createFallbackOrder({
     paymentDueDate: null,
     amountPaid: 0,
     outstandingAmount: orderValue,
+    paymentRequestUrl: null,
     createdAt: new Date().toISOString(),
     items: items.map((item) => ({
       id: item.id,

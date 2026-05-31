@@ -7,10 +7,37 @@ import {
   ensurePilotRows,
   getOrderByToken,
   getSupabaseAdmin,
+  listOrders,
   mapPilotProductId,
   recordAiOrderParse,
 } from "@/lib/orders/persistence";
 import { polishDemoProductName, polishDemoSku } from "@/lib/orders/product-display";
+
+export async function GET(request: Request) {
+  try {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Missing Supabase environment variables." },
+        { status: 503 }
+      );
+    }
+
+    const url = new URL(request.url);
+    const orders = await listOrders(supabase, {
+      brandId: url.searchParams.get("brand_id"),
+      distributorId: url.searchParams.get("distributor_id"),
+      limit: Number(url.searchParams.get("limit") || 100),
+    });
+
+    return NextResponse.json({ orders });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error?.message || "Unknown order list error." },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -29,6 +56,7 @@ export async function POST(request: Request) {
 
     const input = parsed.data;
     const { brandId, distributorId } = await ensurePilotRows(supabase, input);
+    const orderStatus = input.order_status || (input.source_channel === "Distributor Portal" ? "po_requested" : "link_created");
     const sourceRecord = await createSourceRecord(supabase, {
       brandId,
       distributorId,
@@ -53,7 +81,7 @@ export async function POST(request: Request) {
         source_channel: input.source_channel,
         source_record_id: sourceRecord.id,
         original_message: input.original_message,
-        status: "link_created",
+        status: orderStatus,
         share_token: shareToken,
         total_value: input.total_value,
         amount: input.total_value,
@@ -101,12 +129,17 @@ export async function POST(request: Request) {
     });
 
     const eventDetails = { source_channel: input.source_channel, source_record_id: sourceRecord.id, distributor_name: input.distributor_name };
-    const { error: eventsError } = await supabase.from("order_events").insert([
-      { order_id: order.id, event_type: "message_pasted", label: "Message pasted", details: eventDetails },
-      { order_id: order.id, event_type: "draft_generated", label: "Draft generated", details: { item_count: input.items.length } },
-      { order_id: order.id, event_type: "brand_approved", label: "Brand approved", details: { total_value: input.total_value } },
-      { order_id: order.id, event_type: "link_created", label: "Link created", details: { share_token: shareToken } },
-    ]);
+    const orderEvents = orderStatus === "po_requested"
+      ? [
+          { order_id: order.id, event_type: "portal_po_submitted", label: "Portal PO submitted", details: eventDetails },
+        ]
+      : [
+          { order_id: order.id, event_type: "message_pasted", label: "Message pasted", details: eventDetails },
+          { order_id: order.id, event_type: "draft_generated", label: "Draft generated", details: { item_count: input.items.length } },
+          { order_id: order.id, event_type: "brand_approved", label: "Brand approved", details: { total_value: input.total_value } },
+          { order_id: order.id, event_type: "link_created", label: "Link created", details: { share_token: shareToken } },
+        ];
+    const { error: eventsError } = await supabase.from("order_events").insert(orderEvents);
 
     if (eventsError) {
       return NextResponse.json({ error: eventsError.message }, { status: 500 });

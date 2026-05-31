@@ -6,6 +6,7 @@ import {
 } from "@/lib/payments/status";
 import { applyOrderPaymentUpdate, getPaymentEvent } from "@/lib/orders/payment";
 import { getOrderByToken, getSupabaseAdmin, recordPaymentRequest } from "@/lib/orders/persistence";
+import { createOrderCheckoutSession } from "@/lib/payments/stripe-checkout";
 
 const PaymentUpdateSchema = z.object({
   payment_status: z.enum(["unpaid", "requested", "paid", "partial", "overdue"]),
@@ -35,7 +36,7 @@ export async function POST(
 
     const existing = await getOrderByToken(supabase, token);
     const paymentStatus = parsed.data.payment_status as PaymentStatus;
-    const paymentMethod = (parsed.data.payment_method || "offline") as PaymentMethod;
+    const paymentMethod = (parsed.data.payment_method || (paymentStatus === "requested" ? "card" : "offline")) as PaymentMethod;
     const paymentUpdate = applyOrderPaymentUpdate(existing, {
       paymentStatus,
       paymentMethod,
@@ -43,6 +44,11 @@ export async function POST(
       amountPaid: parsed.data.amount_paid ?? existing.amountPaid,
     });
     const paymentEvent = getPaymentEvent(paymentStatus);
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/+$/, "");
+    const checkout = paymentStatus === "requested"
+      ? await createOrderCheckoutSession({ order: existing, token, appUrl })
+      : null;
+    const paymentRequestUrl = checkout?.url || `${appUrl}/order/${token}`;
 
     const { error: updateError } = await supabase
       .from("orders")
@@ -69,6 +75,8 @@ export async function POST(
           payment_method: paymentUpdate.paymentMethod,
           amount_paid: paymentUpdate.amountPaid,
           outstanding_amount: paymentUpdate.outstandingAmount,
+          payment_request_url: checkout?.url || null,
+          stripe_checkout_session_id: checkout?.id || null,
         },
       });
 
@@ -83,17 +91,20 @@ export async function POST(
         status: paymentStatus === "requested" ? "requested" : paymentStatus === "partial" ? "partial" : "paid",
         rail: paymentUpdate.paymentMethod,
         dueDate: paymentUpdate.paymentDueDate,
-        requestUrl: `${(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/+$/, "")}/order/${token}`,
+        requestUrl: paymentRequestUrl,
+        provider: checkout?.id ? "stripe" : "manual",
+        providerSessionId: checkout?.id || null,
         metadata: {
           payment_status: paymentStatus,
           amount_paid: paymentUpdate.amountPaid,
           outstanding_amount: paymentUpdate.outstandingAmount,
+          stripe_checkout_session_id: checkout?.id || null,
         },
       });
     }
 
     const order = await getOrderByToken(supabase, token);
-    return NextResponse.json({ order });
+    return NextResponse.json({ order, paymentUrl: checkout?.url || null });
   } catch (error: any) {
     const status = error?.code === "PGRST116" ? 404 : 500;
     return NextResponse.json(

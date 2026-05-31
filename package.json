@@ -14,10 +14,11 @@
   "dependencies": {
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
-    "next": "15.5.9",
+    "next": "^15.5.18",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "resend": "latest",
+    "stripe": "^22.2.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

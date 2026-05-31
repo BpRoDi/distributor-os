@@ -55,6 +55,7 @@ type SharedOrder = {
   paymentDueDate?: string | null;
   amountPaid: number;
   outstandingAmount: number;
+  paymentRequestUrl?: string | null;
   items: SharedOrderItem[];
   events: SharedOrderEvent[];
 };
@@ -179,7 +180,7 @@ export default function OrderReviewClient({ token }: { token: string }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         payment_status: paymentStatus,
-        payment_method: "offline",
+        payment_method: paymentStatus === "requested" ? "card" : "offline",
         amount_paid: paymentStatus === "paid" ? order.totalValue : order.amountPaid,
         payment_due_date: dueDate,
       }),
@@ -189,6 +190,7 @@ export default function OrderReviewClient({ token }: { token: string }) {
       const nextOrder = normalizeSharedOrder(data.order);
       setOrder(nextOrder);
       persistSharedOrderSnapshot(nextOrder, token);
+      if (data.paymentUrl) window.open(data.paymentUrl, "_blank", "noopener,noreferrer");
       setLoadState(paymentStatus === "paid" ? "Payment marked paid in Supabase" : "Payment requested in Supabase");
       setActionLoading(null);
       return;
@@ -339,6 +341,16 @@ export default function OrderReviewClient({ token }: { token: string }) {
               <p>Reference: {order.orderNumber}. Outstanding amount: ${order.outstandingAmount.toFixed(2)}.</p>
               {order.paymentDueDate && <p>Due date: {new Date(order.paymentDueDate).toLocaleDateString()}.</p>}
             </div>
+            {order.paymentRequestUrl && order.paymentStatus === "requested" && (
+              <a
+                href={order.paymentRequestUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 block rounded-[8px] bg-slate-950 px-4 py-3 text-center text-sm font-semibold text-white"
+              >
+                Pay with secure checkout
+              </a>
+            )}
             {order.status === "distributor_confirmed" && (
               <div className="mt-4 grid gap-2">
                 <button
@@ -434,6 +446,7 @@ function normalizeSharedOrder(raw: any): SharedOrder {
     paymentDueDate: raw?.paymentDueDate || raw?.payment_due_date || null,
     amountPaid: Number(raw?.amountPaid ?? raw?.amount_paid ?? 0),
     outstandingAmount: Number(raw?.outstandingAmount ?? raw?.outstanding_amount ?? raw?.totalValue ?? raw?.total_value ?? items.reduce((sum: number, item: SharedOrderItem) => sum + item.lineTotal, 0)),
+    paymentRequestUrl: raw?.paymentRequestUrl || raw?.payment_request_url || raw?.requestUrl || raw?.request_url || null,
     items,
     events: (raw?.events || []).map((event: any) => ({
       id: event.id,
@@ -481,9 +494,12 @@ function normalizePaymentStatus(status: string | undefined): PaymentStatus {
 function normalizePaymentMethod(method: string | undefined): PaymentMethod {
   const map: Record<string, PaymentMethod> = {
     bank_transfer: "bank_transfer",
+    ach: "ach",
+    wire: "wire",
     paypal: "paypal",
     card: "card",
     apple_pay: "apple_pay",
+    stablecoin_usdc: "stablecoin_usdc",
     offline: "offline",
   };
   return method ? map[method] || "offline" : "offline";

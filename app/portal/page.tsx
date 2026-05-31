@@ -11,6 +11,7 @@ import {
   upsertPortalOrderRecord,
   type PortalOrderSnapshot,
 } from "@/lib/orders/portal-demo";
+import { polishDemoProductName, polishDemoSku } from "@/lib/orders/product-display";
 import { createDefaultBrandWorkspace } from "@/lib/workspace/tenant";
 import type { DistributorInvite } from "@/lib/workspace/tenant";
 
@@ -50,7 +51,7 @@ export default function PortalPage() {
       window.removeEventListener("storage", loadOrders);
       window.removeEventListener("focus", loadOrders);
     };
-  }, []);
+  }, [acceptedInvite?.distributorId]);
 
   function addToCart(product: typeof demoProducts[number]) {
     if (product.stock <= 0) return;
@@ -61,13 +62,26 @@ export default function PortalPage() {
     });
   }
 
-  function loadOrders() {
-    setOrders(readPortalOrderRecords(workspace.id));
+  async function loadOrders() {
+    const localOrders = readPortalOrderRecords(workspace.id);
+    try {
+      const response = await fetch(`/api/orders?brand_id=${encodeURIComponent(workspace.id)}&distributor_id=${encodeURIComponent(acceptedInvite?.distributorId || "dist-eurotrade")}`, { cache: "no-store" });
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data.orders)) {
+          setOrders([...data.orders, ...localOrders]);
+          return;
+        }
+      }
+    } catch {
+      // Local orders keep the standalone portal usable without Supabase.
+    }
+    setOrders(localOrders);
   }
 
-  function submitPo() {
+  async function submitPo() {
     if (!cart.length) return;
-    const order = createPortalPoRequest({
+    const localOrder = createPortalPoRequest({
       brandId: workspace.id,
       brandName,
       distributorId: acceptedInvite?.distributorId || "dist-eurotrade",
@@ -75,16 +89,70 @@ export default function PortalPage() {
       distributorLevel: activeLevel,
       cartItems: cart.map((item) => ({ ...item, qty: item.moq * item.quantityMultiplier })),
     });
+    let order = localOrder;
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand_id: workspace.id,
+          brand_name: brandName,
+          distributor_id: acceptedInvite?.distributorId || "dist-eurotrade",
+          distributor_name: distributorName,
+          distributor_level: activeLevel,
+          source_channel: "Distributor Portal",
+          order_status: "po_requested",
+          original_message: `Portal PO from ${distributorName}`,
+          total_value: total,
+          items: cart.map((item) => ({
+            product_id: item.id,
+            product_name: polishDemoProductName(item.name),
+            sku: polishDemoSku(item.sku, item.name),
+            quantity: item.moq * item.quantityMultiplier,
+            unit_price: getLevelPrice(item, activeLevel),
+            level_a_price: item.levelPrices.A,
+            level_b_price: item.levelPrices.B,
+            level_c_price: item.levelPrices.C,
+            moq: item.moq,
+            stock_snapshot: item.stock,
+            confidence: 100,
+          })),
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        order = data.order;
+      }
+    } catch {
+      // Local fallback below.
+    }
     upsertPortalOrderRecord(order, workspace.id);
-    setOrders(readPortalOrderRecords(workspace.id));
+    await loadOrders();
     setNotice(`${order.orderNumber} sent to ${brandName} for approval.`);
     setCart([]);
   }
 
-  function payOrder(order: PortalOrderSnapshot) {
-    const paid = payPortalOrder(order);
+  async function payOrder(order: PortalOrderSnapshot) {
+    let paid = payPortalOrder(order);
+    try {
+      const response = await fetch(`/api/orders/${order.shareToken}/payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payment_status: "paid",
+          payment_method: "card",
+          amount_paid: order.totalValue,
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        paid = data.order;
+      }
+    } catch {
+      // Local fallback below.
+    }
     upsertPortalOrderRecord(paid, workspace.id);
-    setOrders(readPortalOrderRecords(workspace.id));
+    await loadOrders();
     setNotice(`${order.orderNumber} payment submitted. The brand control panel now shows paid.`);
   }
 
