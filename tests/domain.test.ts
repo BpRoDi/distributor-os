@@ -25,6 +25,10 @@ import {
   inferPaymentStatus,
 } from "../lib/payments/status.ts";
 import {
+  buildStripeCheckoutReconciliation,
+  getStripeCheckoutSessionReference,
+} from "../lib/payments/stripe-webhook.ts";
+import {
   acceptDistributorInvite,
   brandStorageKey,
   createBrandWorkspace,
@@ -231,6 +235,61 @@ describe("Distributor OS domain rules", () => {
     assert.equal(reloadedOrder.paymentStatus, "paid");
     assert.equal(reloadedOrder.outstandingAmount, 0);
     assert.equal(reloadedOrder.events.filter((event) => event.eventType === "payment_paid").length, 1);
+  });
+
+  it("builds an idempotent Stripe checkout reconciliation update", () => {
+    const session = {
+      id: "cs_test_123",
+      client_reference_id: "11111111-1111-4111-8111-111111111111",
+      amount_total: 35000,
+      currency: "usd",
+      payment_status: "paid",
+      payment_intent: "pi_test_123",
+      metadata: {
+        order_id: "11111111-1111-4111-8111-111111111111",
+        order_token: "PO-TEST01",
+        order_number: "PO-ST01",
+      },
+    } as any;
+
+    const reference = getStripeCheckoutSessionReference(session);
+    assert.equal(reference.orderToken, "PO-TEST01");
+    assert.equal(reference.amountPaid, 350);
+    assert.equal(reference.paymentIntentId, "pi_test_123");
+
+    const reconciled = buildStripeCheckoutReconciliation(
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        order_number: "PO-ST01",
+        total_value: 350,
+        payment_status: "requested",
+        payment_due_date: "2026-06-07",
+        amount_paid: 0,
+      },
+      session,
+      "2026-06-01T12:00:00.000Z"
+    );
+
+    assert.equal(reconciled.orderUpdate.payment_status, "paid");
+    assert.equal(reconciled.orderUpdate.amount_paid, 350);
+    assert.equal(reconciled.orderUpdate.outstanding_amount, 0);
+    assert.equal(reconciled.eventType, "payment_paid");
+
+    const duplicate = buildStripeCheckoutReconciliation(
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        order_number: "PO-ST01",
+        total_value: 350,
+        payment_status: "paid",
+        payment_due_date: null,
+        amount_paid: 350,
+      },
+      session,
+      "2026-06-01T12:05:00.000Z"
+    );
+
+    assert.equal(duplicate.orderUpdate.amount_paid, 350);
+    assert.equal(duplicate.orderUpdate.outstanding_amount, 0);
   });
 
   it("creates a distributor portal PO and moves it through approval and payment", () => {
