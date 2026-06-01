@@ -6,6 +6,19 @@ import { reconcileStripeCheckoutSession } from "@/lib/payments/stripe-webhook";
 
 export const runtime = "nodejs";
 
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    endpoint: "Distributor OS Stripe webhook",
+    status: "live",
+    accepts: "POST requests from Stripe only",
+    events: [
+      "checkout.session.completed",
+      "checkout.session.async_payment_succeeded",
+    ],
+  });
+}
+
 export async function POST(request: Request) {
   const stripe = getStripeClient();
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
