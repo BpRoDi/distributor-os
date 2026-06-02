@@ -22,7 +22,7 @@ The app can run locally without Supabase env vars. In that mode, catalog and ord
 
 ```env
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_CALENDLY_URL=https://calendly.com/your-team/distributor-os-pilot
+NEXT_PUBLIC_CALENDLY_URL=https://calendly.com/rigorer-support/30min
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=

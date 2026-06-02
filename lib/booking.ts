@@ -1,11 +1,8 @@
+const DEFAULT_CALENDLY_URL = "https://calendly.com/rigorer-support/30min";
 const FALLBACK_CONTACT_URL = "mailto:hello@distributor-os.com?subject=Distributor%20OS%20pilot%20call";
 
 export function getPilotCallUrl(source: string) {
-  const configuredUrl = process.env.NEXT_PUBLIC_CALENDLY_URL;
-
-  if (!configuredUrl) {
-    return FALLBACK_CONTACT_URL;
-  }
+  const configuredUrl = process.env.NEXT_PUBLIC_CALENDLY_URL || DEFAULT_CALENDLY_URL;
 
   try {
     const url = new URL(configuredUrl);
