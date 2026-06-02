@@ -44,7 +44,7 @@ export type CreateInviteInput = {
 };
 
 export const DEFAULT_BRAND_WORKSPACE_ID = "00000000-0000-0000-0000-000000000001";
-export const DEFAULT_BRAND_NAME = "Nimbus Home Goods";
+export const DEFAULT_BRAND_NAME = "Rigorer";
 
 export function createBrandWorkspace(input: { id?: string; name: string; slug?: string; createdAt?: string }): BrandWorkspace {
   return {
@@ -59,7 +59,7 @@ export function createDefaultBrandWorkspace() {
   return createBrandWorkspace({
     id: DEFAULT_BRAND_WORKSPACE_ID,
     name: DEFAULT_BRAND_NAME,
-    slug: "nimbus-home-goods",
+    slug: "rigorer",
   });
 }
 

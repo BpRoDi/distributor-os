@@ -17,9 +17,21 @@ const productIds: Record<string, string> = {
   p2: "00000000-0000-0000-0000-000000000202",
   p3: "00000000-0000-0000-0000-000000000203",
   p4: "00000000-0000-0000-0000-000000000204",
+  p5: "00000000-0000-0000-0000-000000000205",
+  p6: "00000000-0000-0000-0000-000000000206",
 };
 
-export const SourceChannelSchema = z.enum(["WhatsApp", "Telegram", "Distributor Portal", "Email", "CSV", "PDF", "EDI"]);
+export const SourceChannelSchema = z.enum([
+  "WhatsApp",
+  "Email",
+  "Instagram DM",
+  "Telegram",
+  "Form",
+  "Distributor Portal",
+  "CSV",
+  "PDF",
+  "EDI",
+]);
 
 export const OrderItemInputSchema = z.object({
   product_id: z.string().min(1),
@@ -194,8 +206,8 @@ export async function ensurePilotRows(
   const brandId = input.brand_id || PILOT_BRAND_ID;
   await supabase.from("brands").upsert({
     id: brandId,
-    name: input.brand_name || "Nimbus Home Goods",
-    slug: (input.brand_name || "Nimbus Home Goods").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
+    name: input.brand_name || "Rigorer",
+    slug: (input.brand_name || "Rigorer").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
   });
 
   const distributorId = mapPilotDistributorId(input.distributor_id);
@@ -334,7 +346,7 @@ export function normalizeOrder(order: any, items: any[], events: any[]) {
     orderNumber: order.order_number,
     orderId: order.order_number,
     brandId: order.brand_id,
-    brandName: order.brand_name || "Nimbus Home Goods",
+    brandName: order.brand_name || "Rigorer",
     distributorId: order.distributor_id,
     distributorName: order.distributor_name,
     distributorLevel: order.distributor_level,

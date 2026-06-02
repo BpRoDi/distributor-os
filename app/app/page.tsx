@@ -143,7 +143,174 @@ type ActionLoading =
   | null;
 
 const sampleMessage =
-  "Hi, can you send 120 pcs of HydraGo Stainless Bottle and 30 pcs of AeroClean Smart Air Purifier next week? Use our approved Level A pricing.";
+  "Hey we need about 25 sets for our team. Mostly medium and large. Also maybe 12 pairs of shoes. Can you send the mockup and we can pay deposit Friday?";
+
+const productModules = [
+  {
+    name: "AI Order Intake",
+    description:
+      "Capture requests from WhatsApp, Email, Instagram DM, Telegram, or forms. AI extracts SKU, quantity, size, color, delivery date, customer type, missing fields, and order intent.",
+    label: "Messy channels",
+    tone: "blue" as BadgeTone,
+  },
+  {
+    name: "Smart Order Builder",
+    description:
+      "Automatically create order drafts with pricing tiers, MOQ checks, inventory notes, deposits, discounts, shipping, and risk flags.",
+    label: "Order draft",
+    tone: "emerald" as BadgeTone,
+  },
+  {
+    name: "Payment and Approval Workflow",
+    description:
+      "Track contract signed, deposit paid, mockup approved, production started, final payment due, shipped, and delivered.",
+    label: "Cash control",
+    tone: "amber" as BadgeTone,
+  },
+  {
+    name: "Customer Portal",
+    description:
+      "Send customers one link to confirm order details, upload files, sign agreements, pay deposits, and check status.",
+    label: "Portal link",
+    tone: "violet" as BadgeTone,
+  },
+  {
+    name: "Distributor Dashboard",
+    description:
+      "See which orders are stuck, who needs follow-up, who has not paid, and which customers have higher risk.",
+    label: "Needs follow-up",
+    tone: "rose" as BadgeTone,
+  },
+  {
+    name: "Factory / Fulfillment Handoff",
+    description:
+      "Generate production-ready order sheets with SKU, size, color, quantity, logo files, customer notes, deadline, and shipping address.",
+    label: "Production ready",
+    tone: "slate" as BadgeTone,
+  },
+];
+
+const workflowTemplates = [
+  {
+    name: "Sports Team Order",
+    firstUseCase: "Rigorer jersey customization",
+    status: "First vertical template",
+    fields: [
+      "Team name",
+      "Coach/contact",
+      "Player name",
+      "Jersey number",
+      "Jersey size",
+      "Shoe size",
+      "Product package",
+      "50% deposit",
+      "Final payment",
+      "Mockup approval",
+      "Instagram announcement status",
+    ],
+  },
+  {
+    name: "Wholesale Reorder",
+    firstUseCase: "Retail replenishment",
+    status: "Configurable template",
+    fields: [
+      "Retailer/distributor name",
+      "SKU",
+      "Case quantity",
+      "Price tier",
+      "MOQ",
+      "Inventory status",
+      "Payment terms",
+      "Shipping method",
+    ],
+  },
+  {
+    name: "Custom Apparel / Merch Order",
+    firstUseCase: "Gym, club, or company merch",
+    status: "Configurable template",
+    fields: [
+      "Company/team name",
+      "Logo upload",
+      "Color",
+      "Size breakdown",
+      "Quantity",
+      "Mockup status",
+      "Production deadline",
+      "Delivery address",
+    ],
+  },
+  {
+    name: "Sample Order",
+    firstUseCase: "Buyer sample workflow",
+    status: "Configurable template",
+    fields: ["Buyer name", "Sample SKUs", "Purpose", "Approval status", "Follow-up date"],
+  },
+];
+
+const demoScenarios = [
+  {
+    label: "Sports Team Order",
+    customer: "West Coast AAU Program",
+    summary:
+      "AAU basketball team needs jerseys, shorts, and shoes. Some player sizes are missing, deposit is pending, and mockup needs approval.",
+    status: "Missing information",
+  },
+  {
+    label: "Custom Apparel / Merch Order",
+    customer: "IronPeak Fitness Club",
+    summary:
+      "Gym wants 120 custom hoodies and shirts with logo upload, size breakdown, 50% deposit, and mockup approval.",
+    status: "Ready for deposit",
+  },
+  {
+    label: "Wholesale Reorder",
+    customer: "Bright Retail Co.",
+    summary:
+      "Retailer wants to reorder 300 units across multiple SKUs with price tier, MOQ check, inventory status, and shipping deadline.",
+    status: "Production ready",
+  },
+];
+
+const aiInboxExamples = [
+  {
+    title: "Sports team WhatsApp",
+    channel: "WhatsApp" as SourceChannel,
+    message:
+      "Hey we need about 25 sets for our team. Mostly medium and large. Also maybe 12 pairs of shoes. Can you send the mockup and we can pay deposit Friday?",
+    extracted: [
+      "Order type: Sports Team Order",
+      "Estimated quantity: 25 uniform sets",
+      "Shoe quantity: 12 pairs",
+      "Missing info: player names, jersey numbers, exact sizes, shipping address",
+      "Next action: send customer portal link and request 50% deposit",
+    ],
+  },
+  {
+    title: "Wholesale reorder email",
+    channel: "Email" as SourceChannel,
+    message:
+      "Can we reorder 30 cases of the black bottles and 15 cases of the white ones? Need them before July 10. Same shipping address as last time.",
+    extracted: [
+      "Order type: Wholesale Reorder",
+      "Products: black bottles, white bottles",
+      "Quantities: 30 cases, 15 cases",
+      "Delivery deadline: July 10",
+      "Missing info: confirm SKU and payment terms",
+      "Next action: generate order draft",
+    ],
+  },
+];
+
+const productNavItems = [
+  "Dashboard",
+  "AI Inbox",
+  "Orders",
+  "Templates",
+  "Customers",
+  "Payments",
+  "Production",
+  "Settings",
+];
 
 const launchPackages = [
   {
@@ -293,9 +460,12 @@ export default function BrandAppPage() {
     if (localCatalog) {
       try {
         const parsed = JSON.parse(localCatalog) as Product[];
-        if (parsed.length) {
+        if (parsed.length && isCurrentDemoCatalog(parsed)) {
           setCatalogProducts(parsed);
           setCatalogSaveStatus("Loaded from local catalog storage");
+        } else if (parsed.length) {
+          setCatalogProducts(initialCatalogProducts);
+          setCatalogSaveStatus("Rigorer demo catalog loaded");
         }
       } catch {
         setCatalogSaveStatus("Demo catalog loaded");
@@ -317,9 +487,15 @@ export default function BrandAppPage() {
       }
       const data = await response.json();
       if (Array.isArray(data.products) && data.products.length) {
-        setCatalogProducts(data.products);
-        window.localStorage.setItem(workspaceKey("product-catalog"), JSON.stringify(data.products));
-        setCatalogSaveStatus("Loaded from Supabase product catalog");
+        if (isCurrentDemoCatalog(data.products)) {
+          setCatalogProducts(data.products);
+          window.localStorage.setItem(workspaceKey("product-catalog"), JSON.stringify(data.products));
+          setCatalogSaveStatus("Loaded from Supabase product catalog");
+        } else {
+          setCatalogProducts(initialCatalogProducts);
+          window.localStorage.setItem(workspaceKey("product-catalog"), JSON.stringify(initialCatalogProducts));
+          setCatalogSaveStatus("Rigorer demo catalog loaded; old demo catalog ignored.");
+        }
       }
     } catch {
       setCatalogSaveStatus("Catalog API unavailable; using local/demo catalog.");
@@ -409,14 +585,15 @@ export default function BrandAppPage() {
   }
 
   function ensureFinanceDemoStory(records: PersistedOrder[]) {
-    const seedKey = workspaceKey("finance-demo-story-v3");
+    const seedKey = workspaceKey("finance-demo-story-v4");
     const hasOpenCash = records.some((order) => order.outstandingAmount > 0 && order.paymentStatus !== "paid");
+    const hasCurrentStory = records.some(isCurrentDemoOrder);
     const alreadySeeded = window.localStorage.getItem(seedKey) === "true";
-    if (records.length && (hasOpenCash || alreadySeeded)) return records;
+    if (records.length && hasCurrentStory && (hasOpenCash || alreadySeeded)) return records;
 
     const financeSamples = createSeedDemoOrderRecords();
     window.localStorage.setItem(seedKey, "true");
-    return mergeLocalOrderSnapshots([...financeSamples, ...records]);
+    return mergeLocalOrderSnapshots([...financeSamples, ...records.filter((order) => !isLegacyDemoOrder(order))]);
   }
 
   function upsertOrderRecord(order: PersistedOrder) {
@@ -595,7 +772,7 @@ export default function BrandAppPage() {
 
   function parseMessage() {
     if (!message.trim()) {
-      setErrorMessage("Paste a WhatsApp or Telegram message before generating a draft.");
+      setErrorMessage("Paste a WhatsApp, Email, Instagram DM, Telegram, or form request before generating a draft.");
       return;
     }
     if (!catalogProducts.length) {
@@ -1056,7 +1233,7 @@ export default function BrandAppPage() {
     window.localStorage.setItem(`distributor-os-shared-order-${token}`, JSON.stringify(demoOrder));
     upsertOrderRecord(demoOrder);
     setAuditEvents(demoOrder.events);
-    setToast("Demo flow loaded: catalog, EuroTrade Level A, WhatsApp draft, approval, and pending confirmation link.");
+    setToast("Demo flow loaded: Rigorer catalog, West Coast AAU Level A, AI intake draft, approval, and pending confirmation link.");
   }
 
   function resetAndSeedDemoData() {
@@ -1107,19 +1284,29 @@ export default function BrandAppPage() {
         <aside className="hidden w-[272px] shrink-0 border-r border-slate-200 bg-white p-5 lg:block">
           <div className="mb-8">
             <p className="text-lg font-bold">Distributor OS</p>
-            <p className="text-xs text-slate-500">Brand operations cockpit</p>
+            <p className="text-xs text-slate-500">AI B2B Order Execution OS</p>
           </div>
           <nav className="space-y-2">
-            <NavButton active={view === "control"} onClick={() => setView("control")} label="Control Center" />
+            <NavButton active={view === "control"} onClick={() => setView("control")} label="Dashboard" />
             <NavButton active={view === "portal"} onClick={() => setView("portal")} label="Distributor Portal" />
             <NavButton active={view === "launch"} onClick={() => setView("launch")} label="V1 Launch" />
           </nav>
           <div className="mt-8 rounded-[8px] border border-blue-100 bg-blue-50 p-4">
-            <p className="font-semibold text-blue-950">Commercial launch</p>
+            <p className="font-semibold text-blue-950">Rigorer first vertical</p>
             <p className="mt-2 text-sm leading-6 text-blue-800">
-              Sell the exact brand service: tier pricing, source-backed orders, portal buying, AR, payment requests, and launch support.
+              Serve Rigorer team customization first: AI intake, jersey fields, mockup approval, deposits, production handoff, and customer follow-up.
             </p>
             <p className="mt-3 break-all text-xs font-semibold text-blue-900">Workspace: {workspace.slug}</p>
+          </div>
+          <div className="mt-4 rounded-[8px] border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-bold uppercase text-slate-500">V1 navigation map</p>
+            <div className="mt-3 grid gap-2">
+              {productNavItems.map((item) => (
+                <div key={item} className="rounded-[8px] bg-white px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200">
+                  {item}
+                </div>
+              ))}
+            </div>
           </div>
         </aside>
 
@@ -1377,6 +1564,14 @@ function ControlCenter({
   return (
     <div className="grid gap-6 px-6 py-6 xl:grid-cols-[1fr_380px]">
       <section className="space-y-6">
+        <ProductPositioningPanel />
+        <ProductModulesPanel />
+        <AIInboxDemoPanel
+          setMessage={setMessage}
+          setSourceChannel={setSourceChannel}
+        />
+        <OrderTemplatesPanel />
+        <DemoScenarioPanel />
         <FinancePulseBanner finance={finance} />
 
         <div className="grid gap-4 md:grid-cols-4">
@@ -1405,8 +1600,8 @@ function ControlCenter({
         <Panel>
           <div className="mb-4 space-y-4">
             <div>
-              <h2 className="text-xl font-bold">WhatsApp and Telegram intake</h2>
-              <p className="text-sm text-slate-500">Paste the original distributor message. It stays attached to the generated order.</p>
+              <h2 className="text-xl font-bold">AI order intake</h2>
+              <p className="text-sm text-slate-500">Paste the original B2B request. It stays attached to the generated order for source transparency.</p>
             </div>
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
               <ActionButton className="min-h-[52px]" onClick={runDemoFlow}>Run Demo Flow</ActionButton>
@@ -1425,7 +1620,10 @@ function ControlCenter({
           <div className="mb-3 grid gap-3 md:grid-cols-[180px_1fr]">
             <SelectField label="Source channel" value={sourceChannel} onChange={(value) => setSourceChannel(value as SourceChannel)}>
               <option value="WhatsApp">WhatsApp</option>
+              <option value="Email">Email</option>
+              <option value="Instagram DM">Instagram DM</option>
               <option value="Telegram">Telegram</option>
+              <option value="Form">Form</option>
             </SelectField>
             <SelectField label="Distributor" value={selectedDistributor.id} onChange={setSelectedDistributorId}>
               {distributors.map((distributor) => (
@@ -1767,6 +1965,179 @@ function ControlCenter({
         </Panel>
       </aside>
     </div>
+  );
+}
+
+function ProductPositioningPanel() {
+  return (
+    <Panel>
+      <div className="grid gap-5 xl:grid-cols-[1fr_320px] xl:items-center">
+        <div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Badge tone="blue">AI B2B Order Execution OS</Badge>
+            <Badge tone="emerald">Rigorer first vertical</Badge>
+            <Badge tone="amber">Demo data</Badge>
+          </div>
+          <h2 className="text-2xl font-bold">
+            Turn messy B2B sales conversations into confirmed, paid, production-ready, and trackable orders.
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            Start with Rigorer team jersey customization, then reuse the same workflow engine for wholesale reorders, custom merch, sample requests, distributors, agents, gyms, clubs, and small retail suppliers.
+          </p>
+        </div>
+        <div className="grid gap-3">
+          <ReadField label="Main pain" value="B2B orders do not start as clean carts." />
+          <ReadField label="System of record" value="Conversation, order, payment, production, fulfillment" />
+          <ReadField label="First template" value="Sports Team Order for Rigorer jerseys" />
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function ProductModulesPanel() {
+  return (
+    <Panel>
+      <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row md:items-center">
+        <div>
+          <h2 className="text-xl font-bold">Product modules</h2>
+          <p className="text-sm text-slate-500">
+            The product is broader than a team order tool. Sports Team Orders are the first vertical template.
+          </p>
+        </div>
+        <Badge tone="violet">Configurable OS</Badge>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+        {productModules.map((module) => (
+          <div key={module.name} className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="font-semibold">{module.name}</p>
+              <Badge tone={module.tone}>{module.label}</Badge>
+            </div>
+            <p className="text-sm leading-6 text-slate-600">{module.description}</p>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function AIInboxDemoPanel({
+  setMessage,
+  setSourceChannel,
+}: {
+  setMessage: (value: string) => void;
+  setSourceChannel: (value: SourceChannel) => void;
+}) {
+  return (
+    <Panel>
+      <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row md:items-center">
+        <div>
+          <h2 className="text-xl font-bold">AI Inbox demo</h2>
+          <p className="text-sm text-slate-500">
+            Messy messages become structured order drafts, missing-information lists, and next actions.
+          </p>
+        </div>
+        <Badge tone="blue">Messy conversation to order</Badge>
+      </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {aiInboxExamples.map((example) => (
+          <div key={example.title} className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="font-semibold">{example.title}</p>
+              <Badge tone={example.channel === "Email" ? "slate" : "emerald"}>{example.channel}</Badge>
+            </div>
+            <div className="rounded-[8px] bg-white p-3 text-sm leading-6 text-slate-700 ring-1 ring-slate-200">
+              {example.message}
+            </div>
+            <div className="mt-3 grid gap-2">
+              {example.extracted.map((line) => (
+                <div key={line} className="rounded-[8px] bg-white px-3 py-2 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
+                  {line}
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => {
+                setMessage(example.message);
+                setSourceChannel(example.channel);
+              }}
+              className="mt-4 rounded-[8px] border border-blue-200 bg-white px-4 py-3 text-sm font-bold text-blue-700"
+            >
+              Load this message into intake
+            </button>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function OrderTemplatesPanel() {
+  return (
+    <Panel>
+      <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row md:items-center">
+        <div>
+          <h2 className="text-xl font-bold">Order Templates</h2>
+          <p className="text-sm text-slate-500">
+            Templates define fields, approvals, payment milestones, and production handoff. Sports Team Order is the first use case, not the whole product.
+          </p>
+        </div>
+        <Badge tone="emerald">Configurable</Badge>
+      </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {workflowTemplates.map((template) => (
+          <div key={template.name} className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold">{template.name}</p>
+                <p className="text-xs text-slate-500">{template.firstUseCase}</p>
+              </div>
+              <Badge tone={template.name === "Sports Team Order" ? "blue" : "slate"}>{template.status}</Badge>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {template.fields.map((field) => (
+                <div key={field} className="rounded-[8px] bg-white px-3 py-2 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
+                  {field}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function DemoScenarioPanel() {
+  return (
+    <Panel>
+      <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row md:items-center">
+        <div>
+          <h2 className="text-xl font-bold">Demo scenarios</h2>
+          <p className="text-sm text-slate-500">
+            One Rigorer sports example plus non-sports workflows to prove the platform is horizontal.
+          </p>
+        </div>
+        <Badge tone="amber">Demo data</Badge>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        {demoScenarios.map((scenario) => (
+          <div key={scenario.label} className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase text-blue-700">{scenario.label}</p>
+                <p className="mt-1 font-semibold">{scenario.customer}</p>
+              </div>
+              <Badge tone={scenario.status === "Production ready" ? "emerald" : scenario.status === "Ready for deposit" ? "amber" : "rose"}>
+                {scenario.status}
+              </Badge>
+            </div>
+            <p className="text-sm leading-6 text-slate-600">{scenario.summary}</p>
+          </div>
+        ))}
+      </div>
+    </Panel>
   );
 }
 
@@ -2446,7 +2817,7 @@ function PilotLaunch({
                 </Badge>
                 <Badge tone="violet">Official V1 offer</Badge>
               </div>
-              <h2 className="text-2xl font-bold">Sell Distributor OS as the order-to-cash operating system for distributor brands.</h2>
+              <h2 className="text-2xl font-bold">Sell Distributor OS as the AI B2B order execution system for brands, distributors, and agents.</h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
                 The first official version should promise one thing clearly: brands keep their distributor relationships, while Distributor OS turns chat, portal POs, pricing, approvals, AR, and payment requests into one controlled workflow.
               </p>
@@ -2751,7 +3122,7 @@ function ProductCatalogSetup({
       <div className="mb-4 rounded-[8px] border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
         <p className="font-semibold">{catalogSaveStatus}</p>
         <p className="mt-1">CSV/XLSX columns: sku, name, category, moq, stock, level_a_price, level_b_price, level_c_price, aliases, lead_time.</p>
-        <p className="mt-1">Rows imported here immediately become available to the WhatsApp/Telegram parser.</p>
+        <p className="mt-1">Rows imported here immediately become available to the AI intake parser across chat, email, form, and portal orders.</p>
       </div>
 
       {importSummary && (
@@ -2789,7 +3160,7 @@ function ProductCatalogSetup({
           <input
             value={form.aliases}
             onChange={(event) => updateForm("aliases", event.target.value)}
-            placeholder="hydrago, bottle, stainless bottle"
+            placeholder="jersey set, team shoes, custom hoodies, black bottles"
             className="mt-1 w-full bg-transparent text-sm font-bold outline-none"
           />
         </label>
@@ -2868,8 +3239,13 @@ function AIChannelAnalyticsPanel({ analytics }: { analytics: ReturnType<typeof c
         <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
           <p className="font-semibold">Demand by source channel</p>
           <div className="mt-3 grid grid-cols-2 gap-3">
-            <ReadField label="WhatsApp" value={`$${analytics.demandBySourceChannel.WhatsApp.toFixed(0)}`} />
-            <ReadField label="Telegram" value={`$${analytics.demandBySourceChannel.Telegram.toFixed(0)}`} />
+            {(["WhatsApp", "Email", "Instagram DM", "Telegram", "Form", "Distributor Portal"] as SourceChannel[]).map((channel) => (
+              <ReadField
+                key={channel}
+                label={channel}
+                value={`$${analytics.demandBySourceChannel[channel].toFixed(0)}`}
+              />
+            ))}
           </div>
         </div>
         <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
@@ -3018,6 +3394,21 @@ function ProductCard({ product, level, onAdd }: { product: Product; level: Distr
 
 function parseOrder(message: string, level: DistributorLevel, products: Product[]): OrderItem[] {
   return parseCatalogOrder(message, level, products);
+}
+
+function isCurrentDemoCatalog(products: Product[]) {
+  return products.some((product) => product.sku === "RIG-TEAM-JSY");
+}
+
+function isCurrentDemoOrder(order: PersistedOrder) {
+  return ["DO-RIG-2401", "DO-GYM-2402", "DO-WHOLE-2403"].includes(order.orderNumber);
+}
+
+function isLegacyDemoOrder(order: PersistedOrder) {
+  return (
+    order.orderNumber.startsWith("DO-2026-") ||
+    order.items.some((item) => ["HG-BTL-750", "AC-900-PRO", "VM-PB-20K", "LDL-PRO-01"].includes(item.sku))
+  );
 }
 
 function applyLevelPrice(item: OrderItem, level: DistributorLevel): OrderItem {
@@ -3254,37 +3645,35 @@ function clearLocalDemoState(brandId?: string) {
 
 function createSeedDemoOrderRecords() {
   const now = new Date().toISOString();
+  const scenarioMessages = [
+    "WhatsApp from West Coast AAU: we need about 25 sets for our team, mostly medium and large, plus 12 pairs of shoes. Deposit can be paid Friday after mockup.",
+    "Instagram DM from IronPeak Fitness Club: can we make 120 custom hoodies and shirts with our logo? Need size breakdown, mockup, and deposit invoice.",
+    "Email from Bright Retail Co.: reorder 30 cases of the black bottles and 15 cases of the white ones before July 10. Same shipping address as last time.",
+  ];
+  const scenarioChannels: SourceChannel[] = ["WhatsApp", "Instagram DM", "Email"];
+  const scenarioItems = [
+    [
+      { product: initialCatalogProducts[0], quantity: 25, confidence: 96 },
+      { product: initialCatalogProducts[1], quantity: 12, confidence: 92 },
+    ],
+    [
+      { product: initialCatalogProducts[2], quantity: 120, confidence: 94 },
+    ],
+    [
+      { product: initialCatalogProducts[3], quantity: 30, confidence: 95 },
+      { product: initialCatalogProducts[4], quantity: 15, confidence: 93 },
+    ],
+  ];
+
   return demoOrders.map((demoOrder, index) => {
     const distributor = demoDistributors[index] || demoDistributors[0];
     const level = distributor.level;
-    const product = initialCatalogProducts[index % initialCatalogProducts.length];
-    const quantity = Math.max(product.moq, index === 0 ? 120 : product.moq);
-    const unitPrice = getLevelPrice(product, level);
     const token = `DEMO-${String(index + 1).padStart(2, "0")}`;
     const paymentStatus: PaymentStatus = demoOrder.payment === "Paid" ? "paid" : demoOrder.payment.includes("Deposit") ? "requested" : "unpaid";
     const amountPaid = paymentStatus === "paid" ? demoOrder.amount : 0;
-
-    return {
-      id: `local-${token}`,
-      orderNumber: demoOrder.id,
-      orderId: demoOrder.id,
-      distributorId: distributor.id,
-      distributorName: distributor.name,
-      distributorLevel: level,
-      sourceChannel: index === 1 ? "Telegram" : "WhatsApp",
-      originalMessage: sampleMessage,
-      status: index === 0 ? "link_created" : index === 1 ? "distributor_confirmed" : "approved",
-      shareToken: token,
-      token,
-      totalValue: demoOrder.amount,
-      paymentStatus,
-      paymentMethod: paymentStatus === "paid" ? "offline" : "bank_transfer",
-      paymentDueDate: paymentStatus === "requested" ? addDaysIso(7) : null,
-      amountPaid,
-      outstandingAmount: Math.max(0, demoOrder.amount - amountPaid),
-      paymentRequestUrl: null,
-      createdAt: now,
-      items: [{
+    const items = (scenarioItems[index] || scenarioItems[0]).map(({ product, quantity, confidence }) => {
+      const unitPrice = getLevelPrice(product, level);
+      return {
         id: product.id,
         productId: product.id,
         productName: product.name,
@@ -3299,9 +3688,32 @@ function createSeedDemoOrderRecords() {
         moq: product.moq,
         stockSnapshot: product.stock,
         stock: product.stock,
-        confidence: 94 - index,
+        confidence,
         lineTotal: quantity * unitPrice,
-      }],
+      };
+    });
+
+    return {
+      id: `local-${token}`,
+      orderNumber: demoOrder.id,
+      orderId: demoOrder.id,
+      distributorId: distributor.id,
+      distributorName: distributor.name,
+      distributorLevel: level,
+      sourceChannel: scenarioChannels[index] || "WhatsApp",
+      originalMessage: scenarioMessages[index] || sampleMessage,
+      status: index === 0 ? "link_created" : index === 1 ? "distributor_confirmed" : "approved",
+      shareToken: token,
+      token,
+      totalValue: demoOrder.amount,
+      paymentStatus,
+      paymentMethod: paymentStatus === "paid" ? "offline" : "bank_transfer",
+      paymentDueDate: paymentStatus === "requested" ? addDaysIso(7) : null,
+      amountPaid,
+      outstandingAmount: Math.max(0, demoOrder.amount - amountPaid),
+      paymentRequestUrl: null,
+      createdAt: now,
+      items,
       events: [
         { eventType: "message_pasted", label: "Message pasted", createdAt: now },
         { eventType: "draft_generated", label: "Draft generated", createdAt: now },
@@ -3576,9 +3988,9 @@ function addDaysIso(days: number) {
 }
 
 function viewTitle(view: ViewMode) {
-  if (view === "portal") return "Distributor Buying Portal";
+  if (view === "portal") return "Customer / Distributor Portal";
   if (view === "launch") return "Official V1 Launch Room";
-  return "Brand Control Center";
+  return "AI B2B Order Execution Dashboard";
 }
 
 function statusLabel(status: WorkspaceStatus) {
@@ -3746,8 +4158,8 @@ function WorkflowStrip({
     <Panel>
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold">WhatsApp/Telegram to confirmed order</h2>
-          <p className="text-sm text-slate-500">The whole pilot flow in one visible operating lane.</p>
+          <h2 className="text-xl font-bold">Conversation to confirmed order</h2>
+          <p className="text-sm text-slate-500">The whole intake, approval, portal, payment, and production-ready flow in one visible operating lane.</p>
         </div>
         <Badge tone={activeIndex >= 4 ? "emerald" : "blue"}>{workflowSteps[activeIndex]}</Badge>
       </div>
@@ -3784,7 +4196,7 @@ function PortalOrderWorkflow({ order, paidCount }: { order: PersistedOrder; paid
     <Panel>
       <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row md:items-center">
         <div>
-          <h2 className="text-xl font-bold">Distributor portal order loop</h2>
+          <h2 className="text-xl font-bold">Portal order loop</h2>
           <p className="text-sm text-slate-500">
             Latest portal PO: {order.orderNumber} / {order.distributorName} / ${order.totalValue.toFixed(2)}
           </p>

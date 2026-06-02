@@ -1,6 +1,6 @@
 const fallbackDemoProduct = {
-  name: "HydraGo Stainless Bottle",
-  sku: "HG-BTL-750",
+  name: "Rigorer Custom Team Jersey Set",
+  sku: "RIG-TEAM-JSY",
 };
 
 const placeholderProductNames = new Set([

@@ -213,7 +213,7 @@ export function normalizePortalOrder(raw: any): PortalOrderSnapshot {
     orderNumber: raw?.orderNumber || raw?.order_number || raw?.orderId || "Portal PO",
     orderId: raw?.orderId || raw?.orderNumber || raw?.order_number || "Portal PO",
     brandId: raw?.brandId || raw?.brand_id,
-    brandName: raw?.brandName || raw?.brand_name || "Nimbus Home Goods",
+    brandName: raw?.brandName || raw?.brand_name || "Rigorer",
     distributorId: raw?.distributorId || raw?.distributor_id || "",
     distributorName: raw?.distributorName || raw?.distributor_name || "",
     distributorLevel: (raw?.distributorLevel || raw?.distributor_level || "B") as DistributorLevel,
@@ -360,9 +360,11 @@ function normalizePortalStatus(status: string | undefined): PortalOrderStatus {
 
 function normalizeSourceChannel(channel: string | undefined): SourceChannel {
   if (
-    channel === "Telegram" ||
-    channel === "Distributor Portal" ||
     channel === "Email" ||
+    channel === "Instagram DM" ||
+    channel === "Telegram" ||
+    channel === "Form" ||
+    channel === "Distributor Portal" ||
     channel === "CSV" ||
     channel === "PDF" ||
     channel === "EDI"

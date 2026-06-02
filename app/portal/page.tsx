@@ -26,8 +26,8 @@ export default function PortalPage() {
   const [orders, setOrders] = useState<PortalOrderSnapshot[]>([]);
   const [notice, setNotice] = useState("");
   const activeLevel = acceptedInvite?.distributorLevel || portalLevel;
-  const distributorName = acceptedInvite?.distributorName || "EuroTrade GmbH";
-  const brandName = acceptedInvite?.brandName || "Nimbus Home Goods";
+  const distributorName = acceptedInvite?.distributorName || "West Coast AAU Program";
+  const brandName = acceptedInvite?.brandName || "Rigorer";
   const total = useMemo(() => cart.reduce((sum, item) => sum + getLevelPrice(item, activeLevel) * item.moq * item.quantityMultiplier, 0), [cart, activeLevel]);
   const distributorOrders = useMemo(
     () => orders.filter((order) => order.distributorName === distributorName),
@@ -186,7 +186,7 @@ export default function PortalPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      <AppHeader title="Distributor Portal" subtitle="Approved catalog, negotiated pricing and contextual product questions." />
+      <AppHeader title="Customer / Distributor Portal" subtitle="Confirm orders, approved pricing, deposits, files, and status in one link." />
       <div className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[1fr_360px]">
         <section>
           <div className="mb-5 rounded-[8px] bg-slate-950 p-8 text-white">
@@ -270,7 +270,7 @@ export default function PortalPage() {
                   )}
                 </div>
               ))}
-              {demoOrders.filter((order) => order.distributor === "EuroTrade GmbH" || order.distributor === distributorName).map((order) => <div key={order.id} className="rounded-[8px] bg-slate-50 p-4 text-sm"><div className="flex items-center justify-between"><p className="font-semibold">{order.id}</p><StatusBadge status={order.status} /></div></div>)}
+              {demoOrders.filter((order) => order.distributor === "West Coast AAU Program" || order.distributor === distributorName).map((order) => <div key={order.id} className="rounded-[8px] bg-slate-50 p-4 text-sm"><div className="flex items-center justify-between"><p className="font-semibold">{order.id}</p><StatusBadge status={order.status} /></div></div>)}
             </div>
           </Card>
         </aside>

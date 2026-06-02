@@ -36,21 +36,21 @@ export async function POST(request: Request) {
 
     await admin.from("brands").upsert({
       id: PILOT_BRAND_ID,
-      name: "Nimbus Home Goods",
-      slug: "nimbus-home-goods",
+      name: "Rigorer",
+      slug: "rigorer",
     });
 
     await admin.from("distributors").upsert({
       id: distributorId,
       brand_id: PILOT_BRAND_ID,
-      name: "EuroTrade GmbH",
-      contact_email: "buyer@eurotrade.example",
-      region: "DACH",
+      name: "West Coast AAU Program",
+      contact_email: "coach@westcoast-aau.example",
+      region: "US West",
       tier: "Level A",
       level: "A",
-      payment_terms: "Net 30",
+      payment_terms: "50% deposit",
       status: "Active",
-      trust_score: 94,
+      trust_score: 91,
     });
 
     await admin.from("profiles").upsert({

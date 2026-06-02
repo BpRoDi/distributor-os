@@ -1,7 +1,16 @@
 import { demoProducts } from "@/lib/mock-data";
 
 export type DistributorLevel = "A" | "B" | "C";
-export type SourceChannel = "WhatsApp" | "Telegram" | "Distributor Portal" | "Email" | "CSV" | "PDF" | "EDI";
+export type SourceChannel =
+  | "WhatsApp"
+  | "Email"
+  | "Instagram DM"
+  | "Telegram"
+  | "Form"
+  | "Distributor Portal"
+  | "CSV"
+  | "PDF"
+  | "EDI";
 
 export type DemoDistributor = {
   id: string;
@@ -50,46 +59,46 @@ export type DemoSharedOrder = {
 };
 
 export const levelDetails: Record<DistributorLevel, { label: string; description: string }> = {
-  A: { label: "Level A", description: "Best price for trusted high-volume partners" },
-  B: { label: "Level B", description: "Standard approved distributor price" },
-  C: { label: "Level C", description: "Entry price for new or unproven accounts" },
+  A: { label: "Level A", description: "Best price for trusted high-volume partners and agents" },
+  B: { label: "Level B", description: "Standard approved customer or distributor price" },
+  C: { label: "Level C", description: "Entry price for new accounts, samples, or smaller buyers" },
 };
 
 export const demoDistributors: DemoDistributor[] = [
   {
     id: "dist-eurotrade",
-    name: "EuroTrade GmbH",
+    name: "West Coast AAU Program",
     level: "A",
-    contactEmail: "elena@eurotrade.example",
-    region: "DACH",
-    terms: "Net 30",
-    revenue: 186000,
+    contactEmail: "coach@westcoast-aau.example",
+    region: "US West",
+    terms: "50% deposit",
+    revenue: 142000,
     risk: "Low",
-    trustScore: 94,
+    trustScore: 91,
     portalStatus: "Active",
   },
   {
     id: "dist-bright",
-    name: "Bright Retail Co.",
+    name: "IronPeak Fitness Club",
     level: "B",
-    contactEmail: "ops@bright-retail.example",
-    region: "UK",
-    terms: "Net 45",
-    revenue: 86400,
+    contactEmail: "ops@ironpeak.example",
+    region: "US",
+    terms: "Deposit",
+    revenue: 68400,
     risk: "Medium",
     trustScore: 81,
     portalStatus: "Invited",
   },
   {
     id: "dist-asean",
-    name: "ASEAN Home Supply",
+    name: "Bright Retail Co.",
     level: "C",
-    contactEmail: "buying@asean-home.example",
-    region: "SEA",
-    terms: "Deposit",
-    revenue: 31900,
+    contactEmail: "buyer@bright-retail.example",
+    region: "US East",
+    terms: "Net 15",
+    revenue: 85500,
     risk: "Review",
-    trustScore: 67,
+    trustScore: 73,
     portalStatus: "Invited",
   },
 ];
@@ -102,22 +111,22 @@ export function getPriceDelta(product: { levelPrices: Record<DistributorLevel, n
   return getLevelPrice(product, level) - product.levelPrices.B;
 }
 
-export function getDemoSharedOrder(token = "ORD-NIMBUS-7F3K"): DemoSharedOrder {
+export function getDemoSharedOrder(token = "ORD-RIGORER-7F3K"): DemoSharedOrder {
   const message =
-    "WhatsApp from Elena at EuroTrade: please confirm 120 pcs HydraGo Stainless Bottle and 30 pcs AeroClean Smart Air Purifier for next week at our approved Level A price.";
+    "WhatsApp from West Coast AAU: we need about 25 team sets, mostly medium and large, plus 12 pairs of shoes. Can you send a mockup and deposit link for Friday?";
 
   return {
     token,
     orderId: `DO-${token.slice(-4).toUpperCase()}`,
-    brandName: "Nimbus Home Goods",
-    distributorName: "EuroTrade GmbH",
+    brandName: "Rigorer",
+    distributorName: "West Coast AAU Program",
     distributorLevel: "A",
     sourceChannel: "WhatsApp",
     originalMessage: message,
     status: "Link Shared",
     items: [
-      buildOrderItem("p2", 120, "HydraGo Stainless Bottle", "A", 96),
-      buildOrderItem("p1", 30, "AeroClean Smart Air Purifier", "A", 94),
+      buildOrderItem("p1", 25, "Team uniform set", "A", 96),
+      buildOrderItem("p2", 12, "Team shoes", "A", 92),
     ],
   };
 }

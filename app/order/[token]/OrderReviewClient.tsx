@@ -353,7 +353,7 @@ export default function OrderReviewClient({ token }: { token: string }) {
           <Panel>
             <h2 className="font-bold">Payment instructions</h2>
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-              <p>Method: {order.paymentMethod === "card" ? "Stripe Checkout" : "bank transfer or approved offline terms with Nimbus Home Goods finance"}.</p>
+              <p>Method: {order.paymentMethod === "card" ? "Stripe Checkout" : `bank transfer or approved offline terms with ${order.brandName} finance`}.</p>
               <p>Reference: {order.orderNumber}. Outstanding amount: ${order.outstandingAmount.toFixed(2)}.</p>
               {order.paymentDueDate && <p>Due date: {new Date(order.paymentDueDate).toLocaleDateString()}.</p>}
             </div>
@@ -423,7 +423,7 @@ export default function OrderReviewClient({ token }: { token: string }) {
 }
 
 function normalizeSharedOrder(raw: any): SharedOrder {
-  const fallback = getDemoSharedOrder(raw?.token || "ORD-NIMBUS-7F3K");
+  const fallback = getDemoSharedOrder(raw?.token || "ORD-RIGORER-7F3K");
   const status = normalizeStatus(raw?.status || fallback.status);
   const items = (raw?.items || fallback.items).map((item: any) => {
     const rawProductName = item.productName || item.product_name || item.name;
@@ -527,7 +527,7 @@ function normalizePaymentMethod(method: string | undefined): PaymentMethod {
 }
 
 function isDemoOrderToken(token: string) {
-  return token.toLowerCase().startsWith("demo") || token === "ORD-NIMBUS-7F3K";
+  return token.toLowerCase().startsWith("demo") || token === "ORD-RIGORER-7F3K";
 }
 
 function paymentStatusLabel(status: PaymentStatus) {

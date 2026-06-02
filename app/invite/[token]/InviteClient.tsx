@@ -87,7 +87,7 @@ export default function InviteClient({ token }: { token: string }) {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      <AppHeader title="Distributor Invite" subtitle="Accept a private portal invitation." />
+      <AppHeader title="Portal Invite" subtitle="Accept a brand-scoped order execution workspace invitation." />
       <div className="mx-auto max-w-2xl px-6 py-12">
         <Card>
           <p className="text-sm text-slate-500">Invite token</p>

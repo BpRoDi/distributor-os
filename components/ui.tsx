@@ -41,8 +41,8 @@ export function AppHeader({ title, subtitle }: { title: string; subtitle: string
           <p className="text-sm text-slate-500">{subtitle}</p>
         </div>
         <nav className="flex gap-3 text-sm font-semibold">
-          <Link href="/app">Brand App</Link>
-          <Link href="/portal">Distributor Portal</Link>
+          <Link href="/app">Dashboard</Link>
+          <Link href="/portal">Portal</Link>
           <Link href="/login">Login</Link>
         </nav>
       </div>

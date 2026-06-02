@@ -53,7 +53,17 @@ export function calculateChannelAnalytics({
       acc[order.sourceChannel] += order.totalValue;
       return acc;
     },
-    { WhatsApp: 0, Telegram: 0, "Distributor Portal": 0, Email: 0, CSV: 0, PDF: 0, EDI: 0 }
+    {
+      WhatsApp: 0,
+      Email: 0,
+      "Instagram DM": 0,
+      Telegram: 0,
+      Form: 0,
+      "Distributor Portal": 0,
+      CSV: 0,
+      PDF: 0,
+      EDI: 0,
+    }
   );
 
   const orderConversionStatus = orders.reduce<Record<string, number>>((acc, order) => {

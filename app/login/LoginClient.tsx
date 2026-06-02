@@ -16,7 +16,7 @@ const roles: WorkspaceRole[] = [
 
 export default function LoginClient() {
   const router = useRouter();
-  const [email, setEmail] = useState("founder@nimbus.example");
+  const [email, setEmail] = useState("operator@rigorer.example");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<WorkspaceRole>("brand_admin");
   const [status, setStatus] = useState("");
@@ -90,9 +90,9 @@ export default function LoginClient() {
       <div className="grid max-w-6xl gap-8 lg:grid-cols-[1fr_480px] lg:items-center">
         <div>
           <p className="mb-6 inline-flex rounded-[8px] bg-white/10 px-4 py-3 text-sm font-bold">Distributor OS</p>
-          <h1 className="max-w-2xl text-4xl font-bold md:text-6xl">Brand and distributor access.</h1>
+          <h1 className="max-w-2xl text-4xl font-bold md:text-6xl">Brand, agent, distributor, and customer access.</h1>
           <p className="mt-6 max-w-xl text-lg leading-8 text-slate-300">
-            Sign in to a Supabase-backed workspace, or continue in demo mode while the first pilot accounts are being configured.
+            Sign in to a Supabase-backed order execution workspace, or continue in demo mode while the first pilot accounts are being configured.
           </p>
           <div className="mt-8 grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
             <div className="rounded-[8px] border border-white/10 bg-white/5 p-4">
