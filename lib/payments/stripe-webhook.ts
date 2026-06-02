@@ -9,6 +9,7 @@ type CheckoutSessionLike = Pick<
 type StripeOrderRow = {
   id: string;
   order_number: string;
+  status: string | null;
   total_value: number | string | null;
   payment_status: string | null;
   payment_due_date: string | null;
@@ -63,6 +64,7 @@ export function buildStripeCheckoutReconciliation(
     label,
     details,
     orderUpdate: {
+      status: "distributor_confirmed",
       payment_status: paymentStatus,
       payment_method: "card",
       payment_due_date: paymentStatus === "paid" ? null : order.payment_due_date,
@@ -138,7 +140,7 @@ async function findStripeOrder(
   for (const lookup of lookups) {
     const { data, error } = await supabase
       .from("orders")
-      .select("id, order_number, total_value, payment_status, payment_due_date, amount_paid")
+      .select("id, order_number, status, total_value, payment_status, payment_due_date, amount_paid")
       .eq(lookup.column, lookup.value)
       .limit(1);
 

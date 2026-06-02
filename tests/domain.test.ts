@@ -261,6 +261,7 @@ describe("Distributor OS domain rules", () => {
       {
         id: "11111111-1111-4111-8111-111111111111",
         order_number: "PO-ST01",
+        status: "approved",
         total_value: 350,
         payment_status: "requested",
         payment_due_date: "2026-06-07",
@@ -271,6 +272,7 @@ describe("Distributor OS domain rules", () => {
     );
 
     assert.equal(reconciled.orderUpdate.payment_status, "paid");
+    assert.equal(reconciled.orderUpdate.status, "distributor_confirmed");
     assert.equal(reconciled.orderUpdate.amount_paid, 350);
     assert.equal(reconciled.orderUpdate.outstanding_amount, 0);
     assert.equal(reconciled.eventType, "payment_paid");
@@ -279,6 +281,7 @@ describe("Distributor OS domain rules", () => {
       {
         id: "11111111-1111-4111-8111-111111111111",
         order_number: "PO-ST01",
+        status: "distributor_confirmed",
         total_value: 350,
         payment_status: "paid",
         payment_due_date: null,

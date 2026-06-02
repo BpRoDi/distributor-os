@@ -242,6 +242,8 @@ export default function OrderReviewClient({ token }: { token: string }) {
     );
   }
 
+  const isPaid = order.paymentStatus === "paid" || order.outstandingAmount <= 0;
+
   return (
     <main className="min-h-screen bg-[#f6f8fb] text-slate-950">
       <header className="border-b border-slate-200 bg-white px-6 py-4">
@@ -335,21 +337,32 @@ export default function OrderReviewClient({ token }: { token: string }) {
             </div>
             <button
               onClick={confirmOrder}
-              disabled={order.status === "distributor_confirmed" || actionLoading === "confirm"}
+              disabled={order.status === "distributor_confirmed" || isPaid || actionLoading === "confirm"}
               className="mt-5 w-full rounded-[8px] bg-blue-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"
             >
-              {actionLoading === "confirm" ? "Confirming..." : order.status === "distributor_confirmed" ? "Order confirmed" : "Confirm order"}
+              {actionLoading === "confirm"
+                ? "Confirming..."
+                : order.status === "distributor_confirmed"
+                  ? "Order confirmed"
+                  : isPaid
+                    ? "Payment received"
+                    : "Confirm order"}
             </button>
           </Panel>
 
           <Panel>
             <h2 className="font-bold">Payment instructions</h2>
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-              <p>Method: bank transfer or approved offline terms with Nimbus Home Goods finance.</p>
+              <p>Method: {order.paymentMethod === "card" ? "Stripe Checkout" : "bank transfer or approved offline terms with Nimbus Home Goods finance"}.</p>
               <p>Reference: {order.orderNumber}. Outstanding amount: ${order.outstandingAmount.toFixed(2)}.</p>
               {order.paymentDueDate && <p>Due date: {new Date(order.paymentDueDate).toLocaleDateString()}.</p>}
             </div>
-            {order.paymentRequestUrl && order.paymentStatus === "requested" && (
+            {isPaid && (
+              <div className="mt-4 rounded-[8px] border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+                Payment received. Finance has reconciled this order and no more payment action is needed.
+              </div>
+            )}
+            {order.paymentRequestUrl && order.paymentStatus === "requested" && !isPaid && (
               <a
                 href={order.paymentRequestUrl}
                 target="_blank"
@@ -359,7 +372,7 @@ export default function OrderReviewClient({ token }: { token: string }) {
                 Pay with secure checkout
               </a>
             )}
-            {order.status === "distributor_confirmed" && (
+            {order.status === "distributor_confirmed" && !isPaid && (
               <div className="mt-4 grid gap-2">
                 <button
                   onClick={() => updatePayment("requested")}
