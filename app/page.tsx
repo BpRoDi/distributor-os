@@ -1,4 +1,5 @@
 import { Button, Card, StatusBadge } from "@/components/ui";
+import { getPilotCallUrl } from "@/lib/booking";
 
 const outcomes = [
   { label: "First vertical", value: "Rigorer", detail: "Custom team jerseys, shoes, deposits, mockups, and player size collection." },
@@ -49,6 +50,8 @@ const pricing = [
 ];
 
 export default function LandingPage() {
+  const heroPilotCallUrl = getPilotCallUrl("landing-hero");
+
   return (
     <main className="min-h-screen bg-[#f7f9fc] text-slate-950">
       <header className="border-b border-slate-200 bg-white px-6 py-4">
@@ -76,7 +79,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button href="/app">Show Rigorer Demo</Button>
-              <Button href="mailto:hello@distributor-os.com?subject=Distributor%20OS%20pilot" variant="secondary">
+              <Button href={heroPilotCallUrl} variant="secondary" external>
                 Book Pilot Call
               </Button>
             </div>
@@ -173,7 +176,7 @@ export default function LandingPage() {
               <h2 className="text-3xl font-bold tracking-tight">Simple pilot packaging</h2>
               <p className="mt-2 text-slate-600">Start with Rigorer team customization, then expand templates after the first workflow is clean.</p>
             </div>
-            <Button href="mailto:hello@distributor-os.com?subject=Distributor%20OS%20pricing">Ask for Pricing Deck</Button>
+            <Button href={getPilotCallUrl("landing-pricing")} external>Book Pilot Call</Button>
           </div>
           <div className="grid gap-5 md:grid-cols-3">
             {pricing.map((plan) => (
@@ -182,7 +185,7 @@ export default function LandingPage() {
                   <p className="text-sm font-bold text-blue-700">{plan.name}</p>
                   <p className="mt-3 text-3xl font-bold">{plan.price}</p>
                   <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">{plan.bestFor}</p>
-                  <Button href="mailto:hello@distributor-os.com?subject=Distributor%20OS%20pilot" variant={plan.name === "Pilot" ? "primary" : "secondary"}>
+                  <Button href={getPilotCallUrl(`landing-${plan.name.toLowerCase()}`)} variant={plan.name === "Pilot" ? "primary" : "secondary"} external>
                     {plan.cta}
                   </Button>
                 </div>

@@ -8,11 +8,24 @@ export function Card({ children }: { children: React.ReactNode }) {
   return <section className="rounded-[8px] border border-slate-200 bg-white p-6 shadow-sm">{children}</section>;
 }
 
-export function Button({ children, href, variant = "primary" }: { children: React.ReactNode; href?: string; variant?: "primary" | "secondary" }) {
+export function Button({
+  children,
+  href,
+  variant = "primary",
+  external = false,
+}: {
+  children: React.ReactNode;
+  href?: string;
+  variant?: "primary" | "secondary";
+  external?: boolean;
+}) {
   const classes = variant === "primary"
     ? "bg-blue-700 text-white shadow-lg shadow-blue-200 hover:bg-blue-800"
     : "border border-slate-200 bg-white text-slate-900 hover:bg-slate-50";
 
+  if (href && (external || href.startsWith("http"))) {
+    return <a href={href} target="_blank" rel="noreferrer" className={`inline-flex rounded-[8px] px-5 py-3 text-sm font-semibold transition ${classes}`}>{children}</a>;
+  }
   if (href) return <Link href={href} className={`inline-flex rounded-[8px] px-5 py-3 text-sm font-semibold transition ${classes}`}>{children}</Link>;
   return <button className={`inline-flex rounded-[8px] px-5 py-3 text-sm font-semibold transition ${classes}`}>{children}</button>;
 }

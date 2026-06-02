@@ -22,6 +22,7 @@ The app can run locally without Supabase env vars. In that mode, catalog and ord
 
 ```env
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_CALENDLY_URL=https://calendly.com/bprodis/distributor-os-pilot
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
@@ -69,9 +70,10 @@ npm run build
 3. Set the Framework Preset to Next.js.
 4. Add the env vars above in Vercel Project Settings.
 5. Set `NEXT_PUBLIC_APP_URL` to your deployed app URL, for example `https://your-app.vercel.app`.
-6. Deploy.
-7. Open `/app` and use `Demo Reset` to seed local demo data, or connect Supabase and upload a real pilot catalog.
-8. From the Brand Control Center, create a distributor portal invite and test `/invite/[token]` before sending it to a real distributor.
+6. Set `NEXT_PUBLIC_CALENDLY_URL` to your real Calendly event link so `Book Pilot Call` opens scheduling.
+7. Deploy.
+8. Open `/app` and use `Demo Reset` to seed local demo data, or connect Supabase and upload a real pilot catalog.
+9. From the Brand Control Center, create a distributor portal invite and test `/invite/[token]` before sending it to a real distributor.
 
 ## Stripe Webhook
 

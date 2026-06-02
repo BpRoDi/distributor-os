@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { demoOrders, demoProducts, demoThreads } from "@/lib/mock-data";
 import { readApiError } from "@/lib/api/errors";
 import { calculateChannelAnalytics, type AnalyticsOrder } from "@/lib/analytics/channel";
+import { getPilotCallUrl } from "@/lib/booking";
 import { parseCatalogOrder } from "@/lib/catalog/parser";
 import {
   fromDemoProduct,
@@ -2804,6 +2805,7 @@ function PilotLaunch({
   const manualHoursSaved = Math.max(28, orderRecords.length * 4);
   const cashPulledForward = Math.max(finance.ar.expectedSevenDayCash, 28500);
   const marginProtected = Math.round(modeledMonthlyGmv * 0.012);
+  const bookingUrl = getPilotCallUrl("app-launch");
 
   return (
     <div className="grid gap-6 px-6 py-6 xl:grid-cols-[1fr_390px]">
@@ -2821,6 +2823,24 @@ function PilotLaunch({
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
                 The first official version should promise one thing clearly: brands keep their distributor relationships, while Distributor OS turns chat, portal POs, pricing, approvals, AR, and payment requests into one controlled workflow.
               </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <a
+                  href={bookingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex rounded-[8px] bg-blue-700 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-800"
+                >
+                  Book Pilot Call
+                </a>
+                <a
+                  href={bookingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex rounded-[8px] border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+                >
+                  Schedule Calendly Demo
+                </a>
+              </div>
             </div>
             <div className="grid min-w-[300px] gap-3 sm:grid-cols-2">
               <ReadField label="Modeled monthly GMV" value={formatMoneyShort(modeledMonthlyGmv)} />
@@ -2853,7 +2873,7 @@ function PilotLaunch({
           </p>
           <div className="mt-5 grid gap-4 lg:grid-cols-3">
             {launchPackages.map((item) => (
-              <LaunchPackageCard key={item.name} {...item} />
+              <LaunchPackageCard key={item.name} {...item} bookingUrl={bookingUrl} />
             ))}
           </div>
         </Panel>
@@ -2963,11 +2983,13 @@ function LaunchPackageCard({
   price,
   fit,
   promise,
+  bookingUrl,
 }: {
   name: string;
   price: string;
   fit: string;
   promise: string;
+  bookingUrl: string;
 }) {
   return (
     <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-5">
@@ -2975,6 +2997,14 @@ function LaunchPackageCard({
       <p className="mt-2 text-2xl font-bold">{price}</p>
       <p className="mt-2 text-sm font-semibold text-slate-700">{fit}</p>
       <p className="mt-3 text-sm leading-6 text-slate-600">{promise}</p>
+      <a
+        href={bookingUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-5 inline-flex w-full justify-center rounded-[8px] bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+      >
+        Book pilot call
+      </a>
     </div>
   );
 }
