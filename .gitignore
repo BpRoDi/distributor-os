@@ -17,3 +17,5 @@ npm-debug.log*
 *.tsbuildinfo
 *.zip
 distributor-os-vercel-package/
+
+.vercel
