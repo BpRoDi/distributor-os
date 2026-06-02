@@ -1318,7 +1318,7 @@ export default function BrandAppPage() {
                 <h1 className="text-2xl font-bold">{viewTitle(view)}</h1>
               </div>
               <div className="flex flex-wrap gap-2">
-                <TopButton active={view === "control"} onClick={() => setView("control")}>Control</TopButton>
+                <TopButton active={view === "control"} onClick={() => setView("control")}>Dashboard</TopButton>
                 <TopButton active={view === "portal"} onClick={() => setView("portal")}>Portal</TopButton>
                 <TopButton active={view === "launch"} onClick={() => setView("launch")}>Launch</TopButton>
               </div>
